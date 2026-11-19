@@ -68,7 +68,7 @@ class Runner:
         if account == 'mock':
             self.broker = MockBroker(book, spec['capital'], self.strategy.VERSION, client, self.note)
         else:
-            self.broker = PaperBroker(book, spec['capital'], self.strategy.VERSION)
+            self.broker = PaperBroker(book, spec['capital'], self.strategy.VERSION, spec.get('slippage'))
         self.infos, self.no_data = {}, set()
         self.symbols, self.universe_time = {}, 0.0
         self.prices = {}
@@ -83,8 +83,16 @@ class Runner:
         equity = self.broker.equity({})
         self.budget = int(self.spec['capital'] * self.spec['budget'])
         start, end = self.strategy.buy_window
+        if self.strategy.morning_exit:
+            plan = f'매수 {fmt(start)}~{fmt(end)}, 다음 날 {fmt(self.strategy.morning_exit)} 매도'
+        elif self.strategy.rebalance_time:
+            plan = f'{fmt(self.strategy.rebalance_time)} 종목 교체'
+        else:
+            plan = f'매수 판단 {fmt(start)}~{fmt(end)}'
+        if not self.strategy.morning_exit:
+            plan += ', 다음 날까지 보유' if self.strategy.hold_overnight else f', {fmt(config.EXIT_TIME)} 일괄 매도'
         self.note.log('슬랙 알림 : ' + self.note.status())
-        self.note.send(f'시작 : 매수 판단 {fmt(start)}~{fmt(end)}, {fmt(config.EXIT_TIME)} 일괄 매도\n'
+        self.note.send(f'시작 : {plan}\n'
                        f'자금 {self.spec["capital"]:,}원 (현재 {equity:,.0f}원), '
                        f'종목당 {self.budget:,}원, 최대 {self.spec["max_positions"]}종목, '
                        f'보유 {len(self.broker.positions)}종목')
@@ -130,7 +138,9 @@ class Runner:
     def step(self, now):
         t = hhmm(now)
         start, end = self.strategy.buy_window
-        if t >= config.EXIT_TIME:
+        if self.strategy.morning_exit and t >= self.strategy.morning_exit:
+            self.morning_sell(now)
+        if t >= (self.strategy.exit_time or config.EXIT_TIME):
             self.close_day()
             return
         if t < config.START_TIME:
@@ -149,9 +159,15 @@ class Runner:
                 if reason:
                     self.sell(code, quote['price'], reason)
 
+        # 종목 교체 전략: 하루 한 번 정해진 시각에
+        if self.strategy.rebalance_time:
+            if (self.strategy.rebalance_time <= t < config.EXIT_TIME
+                    and not self.broker.flag_today('rebalanced')):
+                self.rebalance()
+
         # 매수 판단
         slots = self.spec['max_positions'] - len(self.broker.positions)
-        if in_window and slots > 0:
+        if in_window and slots > 0 and not self.strategy.rebalance_time:
             self.refresh_universe()
             candidates = []
             for code, (name, kind) in self.symbols.items():
@@ -189,8 +205,50 @@ class Runner:
         self.note.send(f'매도 : {name}({code}) {p["qty"]:,}주, 매입가 {p["avg_price"]:,.0f} '
                        f'→ 약 {price:,}원, 손익 {profit:+,}원 ({rate:+.2f}%) - {reason}')
 
+    def morning_sell(self, now):
+        """전날(또는 그 전에) 산 종목을 판다. 오늘 산 종목은 그대로 둔다"""
+        today = now.strftime('%Y-%m-%d')
+        for code in list(self.broker.positions):
+            p = self.broker.positions[code]
+            if p.get('time', '')[:10] < today:
+                quote = self.quotes.get(code)
+                self.prices[code] = quote['price']
+                self.sell(code, quote['price'], f'다음 날 {fmt(self.strategy.morning_exit)} 매도')
+
+    def rebalance(self):
+        """목표 종목에 없는 보유 종목은 팔고, 새 종목은 산다. 오늘 한 번만"""
+        targets, report = self.strategy.targets(self.client, dict(self.broker.positions),
+                                                self.spec['max_positions'])
+        keep = {x['code'] for x in targets}
+        for code in list(self.broker.positions):
+            if code not in keep:
+                quote = self.quotes.get(code)
+                self.prices[code] = quote['price']
+                self.sell(code, quote['price'], '순위 밖으로 밀림')
+        for x in targets:
+            if x['code'] in self.broker.positions:
+                continue
+            if len(self.broker.positions) >= self.spec['max_positions']:
+                break
+            quote = self.quotes.get(x['code'])
+            self.prices[x['code']] = quote['price']
+            qty = self.broker.buy(x['code'], x['name'], x['kind'], quote['price'], self.budget, x['reason'])
+            if qty:
+                p = self.broker.positions[x['code']]
+                self.note.send(f'매수 : {x["name"]}({x["code"]}) {qty:,}주, '
+                               f'체결가 {p["avg_price"]:,.0f}원 - {x["reason"]}')
+        self.broker.set_flag_today('rebalanced')
+        self.note.send(report)
+
     def close_day(self):
-        """일괄 매도. 다 팔리면 정리 알림 후 done"""
+        """일괄 매도. 다 팔리면 정리 알림 후 done (다음 날까지 보유하는 전략은 팔지 않음)"""
+        if self.strategy.hold_overnight:
+            if not self.done:
+                self.done = True
+                for code in self.broker.positions:
+                    self.prices[code] = self.quotes.get(code)['price']
+                self.note.send('장 마감 정리 (다음 날까지 보유)\n' + self.broker.summary(self.prices))
+            return
         for code in list(self.broker.positions):
             quote = self.quotes.get(code)
             self.prices[code] = quote['price']
@@ -202,6 +260,12 @@ class Runner:
     def check(self):
         """지금 시점의 판단만 출력"""
         print(f'\n== {self.note.prefix.strip()} ({self.spec["account"]}) ==')
+        if self.strategy.rebalance_time:
+            targets, report = self.strategy.targets(self.client, dict(self.broker.positions),
+                                                    self.spec['max_positions'])
+            print(report)
+            print('들고 갈 종목 : ' + (', '.join(x['name'] for x in targets) or '없음'))
+            return
         self.refresh_universe()
         for code, (name, kind) in self.symbols.items():
             info = self.info(code, name)
@@ -270,11 +334,29 @@ def main():
                     r.note.send(f'오류 : {ex}')
         if all(r.done for r in runners) or hhmm(datetime.now()) >= config.STOP_TIME:
             for r in runners:
-                if not r.done and r.broker.positions:
+                if not r.done and r.broker.positions and not r.strategy.hold_overnight:
                     r.note.send('주의 : 종료 시각까지 팔지 못한 종목이 있습니다. 직접 확인하세요.')
                 r.note.send('종료합니다.')
+            collect_minute_after_close(client, runners)
             return
         time.sleep(config.LOOP_SLEEP)
+
+
+def collect_minute_after_close(client, runners):
+    """장 마감(15:30) 뒤 오늘 1분봉을 저장한다. 당일 분봉은 그날만 받을 수 있어서 매일 쌓아 둔다"""
+    from tools.collect_minute import collect, default_codes
+    now = datetime.now()
+    if hhmm(now) >= 1600:
+        return
+    wait = (now.replace(hour=15, minute=31, second=0) - now).total_seconds()
+    if wait > 0:
+        print(f'15:31까지 기다렸다가 오늘 분봉을 저장합니다 ({wait / 60:.0f}분)')
+        time.sleep(wait)
+    held = {c for r in runners for c in r.broker.positions}
+    try:
+        collect(client, default_codes(client, held))
+    except Exception as ex:                         # 분봉 저장 실패가 매매 기록에 영향 주지 않게
+        print('분봉 저장 실패 :', ex)
 
 
 if __name__ == '__main__':

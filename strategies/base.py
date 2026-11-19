@@ -14,6 +14,10 @@ class Strategy:
     buy_window = (905, 1515)    # 매수 판단을 하는 시간 (HHMM, 시작 포함, 끝 미포함)
     allow_reentry = False       # 같은 날 판 종목을 다시 살 수 있는지
     intraday_exit = True        # 장중 매도 조건이 있는지 (없으면 보유 종목을 계속 조회하지 않음)
+    rebalance_time = None       # HHMM. 정하면 should_buy 대신 하루 한 번 이 시각에 targets()로 종목을 교체
+    hold_overnight = False      # True면 15:15 일괄 매도를 하지 않고 다음 날까지 보유
+    exit_time = None            # HHMM. 이 전략의 장 마감 정리 시각 (None이면 config.EXIT_TIME)
+    morning_exit = None         # HHMM. 정하면 전날 산 종목을 다음 날 이 시각에 모두 판다
 
     def universe(self, client):
         """감시할 종목 {code: (name, kind)}와 설명 문자열. 기본은 config.SYMBOLS
@@ -53,3 +57,11 @@ class Strategy:
     def describe(self, info):
         """로그에 남길 종목별 설명"""
         return str(info) if info else ''
+
+    def targets(self, client, holdings, max_positions):
+        """종목 교체 전략(rebalance_time)만 쓴다. 들고 갈 종목 목록과 보고 문자열
+
+        holdings: 지금 보유 종목 {code: position}
+        돌려주는 목록: [{'code', 'name', 'kind', 'reason'}]. 목록에 없는 보유 종목은 매도된다.
+        """
+        return [], ''

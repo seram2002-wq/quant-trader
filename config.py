@@ -27,6 +27,15 @@ STRATEGIES = [
     {'strategy': 'close_reversal.CloseReversal', 'account': 'paper',
      'capital': 10_000_000, 'budget': 0.24, 'max_positions': 4,
      'channel': 'PAPER_SLACK_CHANNEL'},
+    # 실험: 밤사이 보유 (15:18 KODEX 200 매수, 다음 날 09:00 매도). ETF라 슬리피지를 작게
+    {'strategy': 'overnight_etf.OvernightEtf', 'account': 'paper',
+     'capital': 10_000_000, 'budget': 0.95, 'max_positions': 1,
+     'channel': 'PAPER_SLACK_CHANNEL', 'slippage': 0.0001},
+    # 실험: 멀티팩터 (15:05 종목 교체, 다음 날까지 보유)
+    # 2026-11-18 백테스트에서 기준(연 10%)을 못 넘어 보류
+    # {'strategy': 'multi_factor.MultiFactor', 'account': 'paper',
+    #  'capital': 10_000_000, 'budget': 0.19, 'max_positions': 5,
+    #  'channel': 'PAPER_SLACK_CHANNEL'},
     # 실험 전략은 여기에 'account': 'paper'로 추가 (예: VWAP 추세)
     # {'strategy': 'vwap_trend.VwapTrend', 'account': 'paper',
     #  'capital': 10_000_000, 'budget': 0.95, 'max_positions': 1,
@@ -49,7 +58,7 @@ STOCK_SELL_TAX = 0.0020         # 일반 주식 매도 세금 (ETF는 0)
 
 # ---------------------------------------------------------------- 시간표 (HHMM)
 START_TIME = 905                # 이 시각부터 판단 (전략별 매수 시간은 전략 파일의 buy_window)
-EXIT_TIME = 1515                # 이 시각에 모든 전략의 보유 종목 일괄 매도
+EXIT_TIME = 1515                # 이 시각에 보유 종목 일괄 매도 (다음 날까지 보유하는 전략은 제외)
 STOP_TIME = 1520                # 이 시각 이후 종료
 REPORT_MINUTE = 30              # 매시 이 분에 전략별 잔고 알림
 

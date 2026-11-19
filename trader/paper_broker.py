@@ -27,9 +27,11 @@ TRADE_FIELDS = ['time', 'side', 'code', 'name', 'qty', 'price', 'amount',
 class PaperBroker:
     account = 'paper'
 
-    def __init__(self, book, capital, version=''):
-        """book: 장부 이름 (data/<book>/에 저장), capital: 전략이 쓰는 자금, version: 전략 버전"""
+    def __init__(self, book, capital, version='', slippage=None):
+        """book: 장부 이름 (data/<book>/에 저장), capital: 전략이 쓰는 자금, version: 전략 버전
+        slippage: 가상 체결 가격 차이. 없으면 config.SLIPPAGE (호가가 촘촘한 ETF는 작게 줄 수 있음)"""
         self.book, self.capital, self.version = book, capital, version
+        self.slip = config.SLIPPAGE if slippage is None else slippage
         data_dir = DATA_ROOT / book
         data_dir.mkdir(parents=True, exist_ok=True)
         self.state_file = data_dir / 'state.json'
@@ -76,6 +78,14 @@ class PaperBroker:
     def positions(self):
         return self.state['positions']
 
+    def flag_today(self, key):
+        """오늘 한 번만 하는 일(종목 교체 등)을 했는지"""
+        return bool(self.state['today'].get(key))
+
+    def set_flag_today(self, key):
+        self.state['today'][key] = True
+        self._save()
+
     def traded_today(self, code):
         return code in self.state['today'].get('traded', [])
 
@@ -90,7 +100,7 @@ class PaperBroker:
 
         kind: 'etf' 또는 'stock' (매도 세금 계산용)
         """
-        fill = price * (1 + config.SLIPPAGE)
+        fill = price * (1 + self.slip)
         qty = int(min(budget, self.cash) // (fill * (1 + config.FEE_RATE)))
         if qty <= 0:
             return 0
@@ -116,7 +126,7 @@ class PaperBroker:
         """보유 수량 전부 가상 매도. 실현 손익(원)을 돌려준다."""
         p = self.positions.pop(code)
         name, kind = p.get('name', code), p.get('kind', 'stock')
-        fill = price * (1 - config.SLIPPAGE)
+        fill = price * (1 - self.slip)
         amount = round(fill * p['qty'])
         fee = round(amount * config.FEE_RATE)
         tax = round(amount * config.STOCK_SELL_TAX) if kind == 'stock' else 0

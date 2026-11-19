@@ -18,7 +18,7 @@ import os
 import re
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import requests
@@ -180,14 +180,19 @@ class KISClient:
             'volume': int(volume),
             'value': int(value),
             'vwap': value / volume if volume else 0.0,
+            'status': out.get('iscd_stat_cls_code') or '',   # 51 관리, 52 투자위험, 53 투자경고, 58 거래정지 등
+            'warn': out.get('mrkt_warn_cls_code') or '',     # 00 없음, 01 투자주의, 02 투자경고, 03 투자위험
         }
 
-    def get_trade_value_rank(self):
-        """거래대금 상위 종목 (최대 30개): [{'code', 'name', 'price', 'value'}]"""
+    def get_trade_value_rank(self, market='0000'):
+        """거래대금 상위 종목 (최대 30개): [{'code', 'name', 'price', 'value'}]
+
+        market: '0000' 전체, '0001' 코스피, '1001' 코스닥
+        """
         data = self._get('/uapi/domestic-stock/v1/quotations/volume-rank',
                          'FHPST01710000',
                          {'FID_COND_MRKT_DIV_CODE': 'J', 'FID_COND_SCR_DIV_CODE': '20171',
-                          'FID_INPUT_ISCD': '0000', 'FID_DIV_CLS_CODE': '1',
+                          'FID_INPUT_ISCD': market, 'FID_DIV_CLS_CODE': '1',
                           'FID_BLNG_CLS_CODE': '3',              # 3: 거래금액순
                           'FID_TRGT_CLS_CODE': '111111111',
                           'FID_TRGT_EXLS_CLS_CODE': '0000000000',
@@ -203,7 +208,11 @@ class KISClient:
         return rows
 
     def get_ohlc(self, code):
-        """최근 약 30거래일 일별 시세 (최신 날짜가 맨 앞)"""
+        """최근 약 30거래일 일별 시세 (최신 날짜가 맨 앞, 수정주가)
+
+        장중에 부르면 맨 앞 줄이 오늘이고, close에는 지금 가격이 들어 있다.
+        volume: 거래량, foreign: 외국인 순매수 수량
+        """
         data = self._get('/uapi/domestic-stock/v1/quotations/inquire-daily-price',
                          'FHKST01010400',
                          {'FID_COND_MRKT_DIV_CODE': 'J', 'FID_INPUT_ISCD': code,
@@ -213,9 +222,39 @@ class KISClient:
             if r.get('stck_bsop_date'):
                 rows.append({'date': r['stck_bsop_date'],
                              'open': int(r['stck_oprc']), 'high': int(r['stck_hgpr']),
-                             'low': int(r['stck_lwpr']), 'close': int(r['stck_clpr'])})
+                             'low': int(r['stck_lwpr']), 'close': int(r['stck_clpr']),
+                             'volume': int(self._num(r, 'acml_vol')),
+                             'foreign': int(self._num(r, 'frgn_ntby_qty'))})
         rows.sort(key=lambda x: x['date'], reverse=True)
         return rows
+
+    def get_minute_bars(self, code, end='153000'):
+        """오늘 1분봉 전체 (09:00 ~ end, 시간순). 한 번에 30개씩 거꾸로 받아 이어 붙인다.
+
+        [{'time': 'HHMMSS', 'open', 'high', 'low', 'close', 'volume', 'value'(누적 거래대금)}]
+        """
+        bars, until = {}, end
+        for _ in range(20):
+            data = self._get('/uapi/domestic-stock/v1/quotations/inquire-time-itemchartprice',
+                             'FHKST03010200',
+                             {'FID_ETC_CLS_CODE': '', 'FID_COND_MRKT_DIV_CODE': 'J',
+                              'FID_INPUT_ISCD': code, 'FID_INPUT_HOUR_1': until,
+                              'FID_PW_DATA_INCU_YN': 'Y'})
+            rows = [r for r in data.get('output2', []) or [] if r.get('stck_cntg_hour')]
+            if not rows:
+                break
+            for r in rows:
+                bars[r['stck_cntg_hour']] = {
+                    'date': r.get('stck_bsop_date', ''), 'time': r['stck_cntg_hour'],
+                    'open': int(self._num(r, 'stck_oprc')), 'high': int(self._num(r, 'stck_hgpr')),
+                    'low': int(self._num(r, 'stck_lwpr')), 'close': int(self._num(r, 'stck_prpr')),
+                    'volume': int(self._num(r, 'cntg_vol')), 'value': int(self._num(r, 'acml_tr_pbmn'))}
+            first = min(r['stck_cntg_hour'] for r in rows)
+            if first <= '090000':
+                break
+            t = datetime.strptime(first, '%H%M%S') - timedelta(minutes=1)
+            until = t.strftime('%H%M%S')
+        return [bars[k] for k in sorted(bars)]
 
     # ------------------------------------------------------------ 계좌 (주문하는 전략만)
     def get_balance(self):
