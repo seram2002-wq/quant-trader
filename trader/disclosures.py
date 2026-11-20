@@ -4,20 +4,27 @@ data/dart/YYYYMMDD.csv (tools/collect_dart.py가 저장)에서 종목별 악재 
 새 공시 받기는 run.py의 DartCheck가 한다 (매수 시간에는 1분마다).
 
 보는 공시
-    - 직전 거래일 파일에서 처음 본 시각(collected_at)이 그날 15:30 이후인 공시 (전날 장 마감 뒤 발표)
+    - 직전 거래일 파일에서 처음 본 시각(collected_at)이 그날 장 마감(평소 15:30) 이후인 공시 (전날 장 마감 뒤 발표)
     - 그 다음 날부터 오늘까지의 파일 전체 (주말·휴일에 처음 본 공시 포함)
     전날 장중 공시는 이미 전날 주가에 반영됐다고 보고 보지 않는다.
 
 제목 비교
     공백, 대괄호 머리말([기재정정] 등), 가운뎃점(ㆍ·)을 지운 뒤 키워드가 들어 있는지 본다.
     자회사·종속회사 공시와 해제 공시(매매거래정지해제 등)는 악재로 보지 않는다.
+
+호재 공시 (good_news, 스윙 후보 1·3에서 쓸 규칙을 미리 고정)
+    단일판매·공급계약체결, 자기주식취득결정, 자기주식취득신탁계약체결결정만. 공백과 가운뎃점만 지우고 비교한다.
+    정정·변경·해지·취소·철회·중단·종료·완료·결과·이행·처분, 자회사·종속회사가 들어간 제목은 뺀다
+    ([기재정정]도 정정으로 빠짐).
 """
 import csv
 import re
 from datetime import datetime, timedelta
 from pathlib import Path
 
-DATA = Path(__file__).resolve().parent.parent / 'data'
+from trader.market import hours
+
+DATA =Path(__file__).resolve().parent.parent / 'data'
 DART_DIR = DATA / 'dart'
 MINUTE_DIR = DATA / 'minute'
 
@@ -31,10 +38,24 @@ BAD_WORDS = {
 NOT_BAD = ['종속회사', '자회사', '해제']                    # 다른 회사 일이거나 악재가 풀린 공시
 WATCH_WORDS = ['조회공시요구', '풍문또는보도', '해명']        # 애매한 공시: 거르지 않고 기록만
 
+# 호재 공시 (스윙 후보 1·3용, 2026-11-20 결과를 보기 전에 고정). 제목에서 공백·가운뎃점만 지우고 비교한다.
+# 악재와 달리 [기재정정] 같은 머리말을 지우지 않는다: 정정 공시도 아래 제외어로 걸러야 해서
+GOOD_WORDS = ['단일판매공급계약체결', '자기주식취득결정', '자기주식취득신탁계약체결결정']
+GOOD_EXCLUDE = ['정정', '변경', '해지', '취소', '철회', '중단', '종료', '완료', '결과', '이행', '처분',
+                '자회사', '종속회사']                        # 다른 회사 일이라 그 종목의 호재로 보지 않음
+
 
 def normalize(title):
     t = re.sub(r'\[[^\]]*\]', '', title or '')               # [기재정정] 같은 머리말
     return re.sub(r'[\sㆍ·]', '', t)
+
+
+def good_news(title):
+    """호재 키워드 또는 None. 제외어가 하나라도 있으면 None"""
+    t = re.sub(r'[\sㆍ·]', '', title or '')
+    if any(w in t for w in GOOD_EXCLUDE):
+        return None
+    return next((w for w in GOOD_WORDS if w in t), None)
 
 
 def classify(title):
@@ -82,7 +103,8 @@ def window(now=None):
     now = now or datetime.now()
     today = now.date()
     prev = previous_trading_day(today)
-    cut = f'{prev:%Y-%m-%d} 15:30:00'
+    close = hours(f'{prev:%Y%m%d}')[1]                        # 그날 장 마감 (수능 날 등은 다름)
+    cut = f'{prev:%Y-%m-%d} {close // 100:02d}:{close % 100:02d}:00'
     prev_rows = read(prev)
     rows = [r for r in prev_rows if r.get('collected_at', '') >= cut]
     suspect = f'{prev:%Y%m%d}' if prev_rows and len(rows) == len(prev_rows) else ''

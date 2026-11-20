@@ -11,13 +11,14 @@ vwap(오늘의 거래량 가중 평균가)이 들어 있다.
 class Strategy:
     name = '기본 전략'
     VERSION = 'v1'              # 규칙을 바꾸면 올린다. 매매 기록과 보고서에 남는다
-    buy_window = (905, 1515)    # 매수 판단을 하는 시간 (HHMM, 시작 포함, 끝 미포함)
+    # 시각은 모두 장 시간 기준 분 (trader/market.py): 0 이상 = 개장 N분 뒤, 음수 = 마감 N분 전
+    buy_window = (5, -15)       # 매수 판단을 하는 시간 (시작 포함, 끝 미포함). 평소 09:05 ~ 15:15
     allow_reentry = False       # 같은 날 판 종목을 다시 살 수 있는지
     intraday_exit = True        # 장중 매도 조건이 있는지 (없으면 보유 종목을 계속 조회하지 않음)
-    rebalance_time = None       # HHMM. 정하면 should_buy 대신 하루 한 번 이 시각에 targets()로 종목을 교체
+    rebalance_time = None       # 정하면 should_buy 대신 하루 한 번 이 시각에 targets()로 종목을 교체
     hold_overnight = False      # True면 15:15 일괄 매도를 하지 않고 다음 날까지 보유
-    exit_time = None            # HHMM. 이 전략의 장 마감 정리 시각 (None이면 config.EXIT_TIME)
-    morning_exit = None         # HHMM. 정하면 전날 산 종목을 다음 날 이 시각에 모두 판다
+    exit_time = None            # 이 전략의 장 마감 정리 시각 (None이면 config.EXIT_TIME)
+    morning_exit = None         # 정하면 전날 산 종목을 다음 날 이 시각에 모두 판다 (0 = 개장 직후)
     universe_key = None         # 같은 값을 가진 전략끼리 감시 종목 목록을 같이 쓴다 (None이면 클래스 이름)
     log = staticmethod(print)   # 실행기가 화면·로그 파일로 바꿔 끼운다
     notify = staticmethod(print)  # 실행기가 슬랙 알림으로 바꿔 끼운다

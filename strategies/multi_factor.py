@@ -76,9 +76,9 @@ def factors(rows):
 class MultiFactor(Strategy):
     name = '멀티팩터'
     VERSION = 'v0'
-    buy_window = (1505, 1515)
+    buy_window = (-25, -15)     # 평소 15:05 ~ 15:15
     intraday_exit = False
-    rebalance_time = 1505
+    rebalance_time = -25        # 평소 15:05
     hold_overnight = True
 
     def universe(self, client):

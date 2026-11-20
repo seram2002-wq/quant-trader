@@ -31,7 +31,7 @@ UNIVERSE_SIZE = 30
 class CloseReversal(Strategy):
     name = '장 마감 반전'
     VERSION = 'v1'
-    buy_window = (1430, 1500)
+    buy_window = (-60, -30)     # 마감 60분 전 ~ 30분 전 (평소 14:30 ~ 15:00)
     intraday_exit = TAKE_PROFIT_PCT is not None
 
     def universe(self, client):

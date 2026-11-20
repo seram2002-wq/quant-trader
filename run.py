@@ -23,6 +23,7 @@ from trader.kis_client import KISClient, KISError  # noqa: E402
 from trader.paper_broker import PaperBroker      # noqa: E402
 from trader.mock_broker import MockBroker        # noqa: E402
 from trader.notifier import Notifier             # noqa: E402
+from trader import market                        # noqa: E402
 
 LOCK_PORT = 47285       # 중복 실행 방지용
 ACCOUNT_LABEL = {'mock': '모의', 'paper': '가상'}
@@ -84,15 +85,19 @@ class Runner:
         self.broker.start_day(datetime.now().strftime('%Y%m%d'))
         equity = self.broker.equity({})
         self.budget = int(self.spec['capital'] * self.spec['budget'])
-        start, end = self.strategy.buy_window
-        if self.strategy.morning_exit:
-            plan = f'매수 {fmt(start)}~{fmt(end)}, 다음 날 {fmt(self.strategy.morning_exit)} 매도'
-        elif self.strategy.rebalance_time:
-            plan = f'{fmt(self.strategy.rebalance_time)} 종목 교체'
+        s = self.strategy
+        start, end = (market.at(x) for x in s.buy_window)
+        if s.morning_exit is not None:
+            plan = f'매수 {fmt(start)}~{fmt(end)}, 다음 날 {fmt(market.at(s.morning_exit))} 매도'
+        elif s.rebalance_time is not None:
+            plan = f'{fmt(market.at(s.rebalance_time))} 종목 교체'
         else:
             plan = f'매수 판단 {fmt(start)}~{fmt(end)}'
-        if not self.strategy.morning_exit:
-            plan += ', 다음 날까지 보유' if self.strategy.hold_overnight else f', {fmt(config.EXIT_TIME)} 일괄 매도'
+        if s.morning_exit is None:
+            plan += ', 다음 날까지 보유' if s.hold_overnight else f', {fmt(market.at(config.EXIT_TIME))} 일괄 매도'
+        open_, close = market.hours()
+        if (open_, close) != config.MARKET_HOURS:
+            plan += f' (오늘 장 시간 {fmt(open_)}~{fmt(close)})'
         self.note.log('슬랙 알림 : ' + self.note.status())
         self.note.send(f'시작 : {plan}\n'
                        f'자금 {self.spec["capital"]:,}원 (현재 {equity:,.0f}원), '
@@ -138,14 +143,14 @@ class Runner:
 
     # ------------------------------------------------------------ 한 바퀴
     def step(self, now):
-        t = hhmm(now)
-        start, end = self.strategy.buy_window
-        if self.strategy.morning_exit and t >= self.strategy.morning_exit:
+        t, s = hhmm(now), self.strategy
+        start, end = (market.at(x) for x in s.buy_window)
+        if s.morning_exit is not None and t >= market.at(s.morning_exit):
             self.morning_sell(now)
-        if t >= (self.strategy.exit_time or config.EXIT_TIME):
+        if t >= market.at(config.EXIT_TIME if s.exit_time is None else s.exit_time):
             self.close_day()
             return
-        if t < config.START_TIME:
+        if t < market.at(config.START_TIME):
             return
         in_window = start <= t < end
 
@@ -162,14 +167,14 @@ class Runner:
                     self.sell(code, quote['price'], reason)
 
         # 종목 교체 전략: 하루 한 번 정해진 시각에
-        if self.strategy.rebalance_time:
-            if (self.strategy.rebalance_time <= t < config.EXIT_TIME
+        if s.rebalance_time is not None:
+            if (market.at(s.rebalance_time) <= t < market.at(config.EXIT_TIME)
                     and not self.broker.flag_today('rebalanced')):
                 self.rebalance()
 
         # 매수 판단
         slots = self.spec['max_positions'] - len(self.broker.positions)
-        if in_window and slots > 0 and not self.strategy.rebalance_time:
+        if in_window and slots > 0 and s.rebalance_time is None:
             self.refresh_universe()
             candidates = []
             for code, (name, kind) in self.symbols.items():
@@ -215,7 +220,7 @@ class Runner:
             if p.get('time', '')[:10] < today:
                 quote = self.quotes.get(code)
                 self.prices[code] = quote['price']
-                self.sell(code, quote['price'], f'다음 날 {fmt(self.strategy.morning_exit)} 매도')
+                self.sell(code, quote['price'], f'다음 날 {fmt(market.at(self.strategy.morning_exit))} 매도')
 
     def rebalance(self):
         """목표 종목에 없는 보유 종목은 팔고, 새 종목은 산다. 오늘 한 번만"""
@@ -254,7 +259,7 @@ class Runner:
         for code in list(self.broker.positions):
             quote = self.quotes.get(code)
             self.prices[code] = quote['price']
-            self.sell(code, quote['price'], f'{fmt(config.EXIT_TIME)} 일괄 매도')
+            self.sell(code, quote['price'], f'{fmt(market.at(config.EXIT_TIME))} 일괄 매도')
         if not self.broker.positions and not self.done:
             self.done = True
             self.note.send('장 마감 정리\n' + self.broker.summary(self.prices))
@@ -262,7 +267,7 @@ class Runner:
     def check(self):
         """지금 시점의 판단만 출력"""
         print(f'\n== {self.note.prefix.strip()} ({self.spec["account"]}) ==')
-        if self.strategy.rebalance_time:
+        if self.strategy.rebalance_time is not None:
             targets, report = self.strategy.targets(self.client, dict(self.broker.positions),
                                                     self.spec['max_positions'])
             print(report)
@@ -338,7 +343,7 @@ def main():
                 if str(ex) != r.last_error:
                     r.last_error = str(ex)
                     r.note.send(f'오류 : {ex}')
-        if all(r.done for r in runners) or hhmm(datetime.now()) >= config.STOP_TIME:
+        if all(r.done for r in runners) or hhmm(datetime.now()) >= market.at(config.STOP_TIME):
             for r in runners:
                 if not r.done and r.broker.positions and not r.strategy.hold_overnight:
                     r.note.send('주의 : 종료 시각까지 팔지 못한 종목이 있습니다. 직접 확인하세요.')
@@ -354,13 +359,15 @@ class DartCheck:
     전략 실행 전에 한 번 돌아서, 같은 바퀴의 모든 전략이 같은 공시 목록으로 판단한다.
     """
     EVERY = 600                                     # 초
-    FAST = 60                                       # 장 마감 반전 v2 매수 시간(14:30 ~ 15:00)에는 1분마다
+    FAST = 60                                       # 장 마감 반전 v2 매수 시간(평소 14:30 ~ 15:00)에는 1분마다
 
     def __init__(self):
         self.last = 0.0
 
     def run(self, recent=False):
-        every = self.FAST if 1430 <= hhmm(datetime.now()) < 1500 else self.EVERY
+        from strategies.close_reversal import CloseReversalV2
+        lo, hi = (market.at(x) for x in CloseReversalV2.buy_window)
+        every = self.FAST if lo <= hhmm(datetime.now()) < hi else self.EVERY
         if not recent and time.time() - self.last < every:
             return
         self.last = time.time()
@@ -372,15 +379,19 @@ class DartCheck:
 
 
 def collect_minute_after_close(client, runners):
-    """장 마감(15:30) 뒤 오늘 1분봉과 DART 공시를 저장한다. 당일 분봉은 그날만 받을 수 있어서 매일 쌓아 둔다"""
+    """장 마감 1분 뒤 오늘 1분봉과 DART 공시를 저장한다. 당일 분봉은 그날만 받을 수 있어서 매일 쌓아 둔다
+
+    마감 30분 뒤보다 늦게 끝났으면(프로그램을 늦게 켠 날 등) 건너뛴다. 그때는 tools/collect_minute.py를 직접 실행.
+    """
     from tools.collect_minute import collect, default_codes
     from tools.collect_dart import collect_dart
-    now = datetime.now()
-    if hhmm(now) >= 1600:
+    now, close = datetime.now(), market.hours()[1]
+    if hhmm(now) >= market.shift(close, 30):
         return
-    wait = (now.replace(hour=15, minute=31, second=0) - now).total_seconds()
+    t = market.shift(close, 1)
+    wait = (now.replace(hour=t // 100, minute=t % 100, second=0) - now).total_seconds()
     if wait > 0:
-        print(f'15:31까지 기다렸다가 오늘 분봉·공시를 저장합니다 ({wait / 60:.0f}분)')
+        print(f'{fmt(t)}까지 기다렸다가 오늘 분봉·공시를 저장합니다 ({wait / 60:.0f}분)')
         time.sleep(wait)
     held = {c for r in runners for c in r.broker.positions}
     try:

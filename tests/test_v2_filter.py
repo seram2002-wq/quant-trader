@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest import mock
 
 from trader import disclosures
-from trader.disclosures import classify, scan
+from trader.disclosures import classify, good_news, scan
 from trader.kis_client import KISClient
 from strategies.close_reversal import CloseReversalV2
 
@@ -25,6 +25,22 @@ class Classify(unittest.TestCase):
         self.assertEqual(classify('유상증자결정(종속회사의주요경영사항)'), (None, None))
         self.assertEqual(classify('주권매매거래정지해제              (액면병합 주권 변경상장)'), (None, None))
         self.assertEqual(classify('조회공시요구(풍문또는보도)'), (None, '조회공시요구'))
+
+    def test_good_news_real_titles(self):
+        """data/dart에 실제로 나온 제목 (2026-11-16 ~ 20)"""
+        good = {
+            '단일판매ㆍ공급계약체결': '단일판매공급계약체결',
+            '단일판매ㆍ공급계약체결(자율공시)': '단일판매공급계약체결',
+            '주요사항보고서(자기주식취득결정)': '자기주식취득결정',
+            '주요사항보고서(자기주식취득신탁계약체결결정)': '자기주식취득신탁계약체결결정',
+        }
+        not_good = ['[기재정정]단일판매ㆍ공급계약체결', '[기재정정]단일판매ㆍ공급계약체결(자율공시)',
+                    '[첨부정정]주요사항보고서(자기주식취득결정)', '단일판매ㆍ공급계약해지',
+                    '주요사항보고서(자기주식처분결정)', '자기주식취득결과보고서',
+                    '주요사항보고서(자기주식취득신탁계약해지결정)', '주권매매거래정지 (단일판매공급계약)',
+                    '단일판매ㆍ공급계약체결(자회사의 주요경영사항)', '단일판매ㆍ공급계약체결(종속회사의주요경영사항)']
+        self.assertEqual({t: good_news(t) for t in good}, good)
+        self.assertEqual([good_news(t) for t in not_good], [None] * len(not_good))
 
 
 class Window(unittest.TestCase):

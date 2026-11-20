@@ -25,7 +25,7 @@ BAND = 0.001                # VWAP 위아래 0.1%
 class VwapTrend(Strategy):
     name = 'VWAP 추세'
     VERSION = 'v1'
-    buy_window = (905, 1500)
+    buy_window = (5, -30)       # 평소 09:05 ~ 15:00
     allow_reentry = True        # 하루에 여러 번 사고팔 수 있음
     intraday_exit = True
 

@@ -252,6 +252,7 @@ quant-trader/
 │   ├── fetch_research_data.py  # 일별 시세, (거래소 계정 있으면) PER·PBR·수급, 장중 시세
 │   ├── fetch_dart.py           # DART 재무제표 (DART_API_KEY 필요)
 │   ├── collect_minute.py       # 오늘 1분봉 저장 (run.py가 장 마감 뒤 자동 실행)
+│   ├── backfill_dart.py        # 과거 DART 공시 목록(주요사항·거래소공시, 2011 ~ 2024) 이어받기. run.py 장 마감 뒤에 직접 실행
 │   ├── collect_dart.py         # DART 공시 목록 저장 (run.py가 시작·장중 10분마다(14:30 ~ 15:00은 1분마다)·장 마감 뒤 자동 실행)
 │   ├── krx_login_check.py      # 거래소 로그인 확인
 │   └── dart_check.py           # DART 응답 확인
@@ -316,11 +317,15 @@ python tools\fetch_research_data.py     # 일별 시세 2010년~, 장중 시세,
 ```
 .venv\Scripts\activate
 python run.py --check     (선택) 지금 시점의 전략별 판단만 출력, 주문 안 함
-python run.py             장중 실행, 15:20 전에 스스로 종료
+python run.py             장중 실행, 마감 10분 전(평소 15:20)에 스스로 종료
 python report.py          장 마감 후 results 보고서 갱신
 ```
 
 - **09:00 전에** 켭니다. 밤사이 보유가 전날 산 KODEX 200을 09:00에 팔고, 장 마감 반전은 14:30부터 판단합니다.
+- 시각은 모두 그날 장 시간 기준입니다 (`trader/market.py`). 전략과 `config.py`에는 "개장 N분 뒤(0 이상)" 또는
+  "마감 N분 전(음수)"으로 적습니다. 예: 장 마감 반전 매수 `(-60, -30)`, 일괄 매도 `EXIT_TIME = -15`.
+  수능 날처럼 장 시간이 다른 날은 `config.py`의 `SPECIAL_HOURS`에 `'YYYYMMDD': (개장, 마감)`만 적으면
+  매수·매도·종료·분봉 저장·공시 필터의 "전날 장 마감 뒤" 기준이 같이 밀립니다. 거래소 공지를 보고 미리 적어 둡니다.
 - 장 마감 후 `python report.py`로 `results/`에 전략별 보고서를 만들고, 관찰한 것은
   `results/journal.md`에 적습니다. 처음에는 `results/` 폴더가 없으니 그대로 실행하면 생깁니다.
 - `report.py`는 quantstats가 설치되어 있으면(`pip install -r requirements.txt`) 장부마다
@@ -372,7 +377,7 @@ python report.py          장 마감 후 results 보고서 갱신
 
 ## 앞으로
 
-- 장 마감 반전 백테스트: 한국투자 API는 당일 분봉만 줘서, `run.py`가 끝난 뒤 15:31에 그날 1분봉을
+- 장 마감 반전 백테스트: 한국투자 API는 당일 분봉만 줘서, `run.py`가 끝난 뒤 장 마감 1분 뒤(평소 15:31)에 그날 1분봉을
   저장한다 (거래대금 상위 전체·코스피·코스닥 각 30개, KODEX 200·인버스, 보유 종목. 15분 정도 걸림).
   몇 달 쌓이면 진입 기준, 매수 시간 등을 백테스트로 정해 v2를 가상 장부에서 시험
 - 밤사이 효과(종가 매수 → 다음 날 시가 매도): 지수 기준으로는 뚜렷하지만 비용에 크게 좌우됨.

@@ -3,9 +3,10 @@
     python tools/collect_minute.py              오늘 거래대금 상위 종목 + KODEX 200·인버스 + 보유 종목
     python tools/collect_minute.py 005930 ...   지정한 종목만
     python tools/collect_minute.py --end 163000 --force
-                                                장 마감이 늦은 날(수능 날 16:30 등). --force는 이미 받은 파일도 다시 받음
+                                                끝 시각을 직접 지정. --force는 이미 받은 파일도 다시 받음
 
-run.py가 장 마감 뒤(15:31 이후)에 자동으로 부른다. 직접 실행할 때도 15:31 이후에.
+끝 시각은 기본으로 오늘 장 마감 (config.MARKET_HOURS, 수능 날 등은 config.SPECIAL_HOURS).
+run.py가 장 마감 1분 뒤에 자동으로 부른다. 직접 실행할 때도 마감 뒤에.
 data/minute/YYYYMMDD/<종목코드>.csv 로 저장 (git 제외). 이미 있는 파일은 건너뜀.
 한국투자 API는 당일 분봉만 주므로 그날 받지 않으면 다시 구할 수 없다.
 """
@@ -22,6 +23,7 @@ load_dotenv(ROOT / '.env', override=True)
 
 from trader.kis_client import KISClient, KISError   # noqa: E402
 from trader.symbols import is_etf                    # noqa: E402
+from trader.market import hours                      # noqa: E402
 
 ALWAYS = ['069500', '114800']                        # KODEX 200, KODEX 인버스
 FIELDS = ['date', 'time', 'open', 'high', 'low', 'close', 'volume', 'value']
@@ -37,8 +39,9 @@ def default_codes(client, extra=()):
     return list(dict.fromkeys(codes))
 
 
-def collect(client, codes, log=print, end='153000', force=False):
+def collect(client, codes, log=print, end=None, force=False):
     day = datetime.now().strftime('%Y%m%d')
+    end = end or f'{hours(day)[1]:04d}00'            # 오늘 장 마감 (수능 날 등은 config.SPECIAL_HOURS)
     out = ROOT / 'data' / 'minute' / day
     out.mkdir(parents=True, exist_ok=True)
     done = fail = 0
@@ -65,7 +68,7 @@ def collect(client, codes, log=print, end='153000', force=False):
 
 if __name__ == '__main__':
     args = sys.argv[1:]
-    end = args[args.index('--end') + 1] if '--end' in args else '153000'
+    end = args[args.index('--end') + 1] if '--end' in args else None
     force = '--force' in args
     skip = {args.index('--end') + 1} if '--end' in args else set()      # --end 뒤의 시각은 종목코드가 아님
     codes = [a for i, a in enumerate(args) if i not in skip and a.isdigit() and len(a) == 6]
