@@ -265,6 +265,7 @@ quant-trader/
 │   ├── fetch_dart.py           # DART 재무제표 (DART_API_KEY 필요)
 │   ├── collect_minute.py       # 오늘 1분봉 저장 (run.py가 장 마감 뒤 자동 실행)
 │   ├── backfill_dart.py        # 과거 DART 공시 목록(주요사항·거래소공시, 2011 ~ 2024) 이어받기. run.py 장 마감 뒤에 직접 실행
+│   ├── news_report.py          # 뉴스 판정별 포착 뒤 5·15·30분·장마감 수익률과 오탐 → results/news_report.md
 │   ├── collect_dart.py         # DART 공시 목록 저장 (run.py가 시작·장중 10분마다(14:30 ~ 15:00은 1분마다)·장 마감 뒤 자동 실행)
 │   ├── krx_login_check.py      # 거래소 로그인 확인
 │   └── dart_check.py           # DART 응답 확인
