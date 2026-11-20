@@ -26,7 +26,7 @@ from trader.notifier import Notifier             # noqa: E402
 
 LOCK_PORT = 47285       # 중복 실행 방지용
 ACCOUNT_LABEL = {'mock': '모의', 'paper': '가상'}
-UNIVERSE_CACHE = {}     # 같은 전략(모의투자와 그림자)은 감시 종목 목록을 같이 쓴다 {전략 클래스: (시각, 목록, 설명)}
+UNIVERSE_CACHE = {}     # 같은 전략(모의투자, 그림자, 다른 버전)은 감시 종목 목록을 같이 쓴다 {universe_key: (시각, 목록, 설명)}
 
 
 def hhmm(t):
@@ -64,7 +64,9 @@ class Runner:
         account = spec['account']
         label = f'{ACCOUNT_LABEL[account]}·{self.strategy.name} {self.strategy.VERSION}'
         self.note = Notifier(spec['channel'], label)
-        book = f'{account}_{module_name}'
+        self.strategy.log = self.note.log               # 전략 안의 진행 상황도 같은 로그에
+        self.strategy.notify = self.note.send           # 전략이 슬랙에 직접 알릴 때 (예: 악재 공시로 제외)
+        book = spec.get('book') or f'{account}_{module_name}'   # 같은 파일의 두 버전을 동시에 돌릴 때 'book'으로 구분
         if account == 'mock':
             self.broker = MockBroker(book, spec['capital'], self.strategy.VERSION, client, self.note)
         else:
@@ -101,7 +103,7 @@ class Runner:
         if self.symbols and time.time() - self.universe_time < config.UNIVERSE_REFRESH:
             return
         self.universe_time = time.time()
-        key = type(self.strategy).__name__
+        key = self.strategy.universe_key or type(self.strategy).__name__
         cached = UNIVERSE_CACHE.get(key)
         if cached and time.time() - cached[0] < config.UNIVERSE_REFRESH:
             symbols, source = cached[1], cached[2]
@@ -315,11 +317,15 @@ def main():
                 r.note.log(f'시작 준비 실패 ({attempt}/5) : {ex} → 30초 뒤 다시 시도')
                 time.sleep(30)
 
+    dart_check = DartCheck()
+    dart_check.run(recent=True)                     # 어제 저녁 공시까지 채우기
+
     while True:
         now = datetime.now()
         if now.weekday() >= 5:
             print('주말에는 실행하지 않습니다.')
             return
+        dart_check.run()                            # 10분마다 (v2 매수 시간에는 1분마다) 오늘 새 공시
         for r in runners:
             if r.done:
                 continue
@@ -342,21 +348,49 @@ def main():
         time.sleep(config.LOOP_SLEEP)
 
 
+class DartCheck:
+    """DART 공시를 장중에 주기적으로 저장 (처음 본 시각이 실제 공시 시각에 가깝도록). 실패해도 매매에 영향 없음
+
+    전략 실행 전에 한 번 돌아서, 같은 바퀴의 모든 전략이 같은 공시 목록으로 판단한다.
+    """
+    EVERY = 600                                     # 초
+    FAST = 60                                       # 장 마감 반전 v2 매수 시간(14:30 ~ 15:00)에는 1분마다
+
+    def __init__(self):
+        self.last = 0.0
+
+    def run(self, recent=False):
+        every = self.FAST if 1430 <= hhmm(datetime.now()) < 1500 else self.EVERY
+        if not recent and time.time() - self.last < every:
+            return
+        self.last = time.time()
+        try:
+            from tools.collect_dart import collect_dart, collect_recent
+            collect_recent() if recent else collect_dart(quiet=True, full=False)
+        except Exception as ex:
+            print('DART 공시 저장 실패 :', ex)
+
+
 def collect_minute_after_close(client, runners):
-    """장 마감(15:30) 뒤 오늘 1분봉을 저장한다. 당일 분봉은 그날만 받을 수 있어서 매일 쌓아 둔다"""
+    """장 마감(15:30) 뒤 오늘 1분봉과 DART 공시를 저장한다. 당일 분봉은 그날만 받을 수 있어서 매일 쌓아 둔다"""
     from tools.collect_minute import collect, default_codes
+    from tools.collect_dart import collect_dart
     now = datetime.now()
     if hhmm(now) >= 1600:
         return
     wait = (now.replace(hour=15, minute=31, second=0) - now).total_seconds()
     if wait > 0:
-        print(f'15:31까지 기다렸다가 오늘 분봉을 저장합니다 ({wait / 60:.0f}분)')
+        print(f'15:31까지 기다렸다가 오늘 분봉·공시를 저장합니다 ({wait / 60:.0f}분)')
         time.sleep(wait)
     held = {c for r in runners for c in r.broker.positions}
     try:
         collect(client, default_codes(client, held))
     except Exception as ex:                         # 분봉 저장 실패가 매매 기록에 영향 주지 않게
         print('분봉 저장 실패 :', ex)
+    try:
+        collect_dart()
+    except Exception as ex:
+        print('DART 공시 저장 실패 :', ex)
 
 
 if __name__ == '__main__':

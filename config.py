@@ -27,10 +27,15 @@ STRATEGIES = [
     {'strategy': 'close_reversal.CloseReversal', 'account': 'paper',
      'capital': 10_000_000, 'budget': 0.24, 'max_positions': 4,
      'channel': 'PAPER_SLACK_CHANNEL'},
-    # 실험: 밤사이 보유 (15:18 KODEX 200 매수, 다음 날 09:00 매도). ETF라 슬리피지를 작게
+    # 실험: 장 마감 반전 v2 = v1 + 악재 공시 필터. 장부 이름을 따로 줘서 그림자(v1)와 나란히
+    {'strategy': 'close_reversal.CloseReversalV2', 'account': 'paper', 'book': 'paper_close_reversal_v2',
+     'capital': 10_000_000, 'budget': 0.24, 'max_positions': 4,
+     'channel': 'PAPER_SLACK_CHANNEL'},
+    # 실험: 밤사이 보유 (15:18 KODEX 200 매수, 다음 날 09:00 매도). 2026-11-20부터 2 ~ 3주만 참고로.
+    # 슬리피지 0 = 장 마감·장 시작 동시호가 체결을 흉내 (왕복 비용 = 수수료 0.015% × 2)
     {'strategy': 'overnight_etf.OvernightEtf', 'account': 'paper',
      'capital': 10_000_000, 'budget': 0.95, 'max_positions': 1,
-     'channel': 'PAPER_SLACK_CHANNEL', 'slippage': 0.0001},
+     'channel': 'PAPER_SLACK_CHANNEL', 'slippage': 0.0},
     # 실험: 멀티팩터 (15:05 종목 교체, 다음 날까지 보유)
     # 2026-11-18 백테스트에서 기준(연 10%)을 못 넘어 보류
     # {'strategy': 'multi_factor.MultiFactor', 'account': 'paper',

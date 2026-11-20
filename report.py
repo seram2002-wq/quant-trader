@@ -67,7 +67,7 @@ def capital_of(book):
     """장부의 시작 자금: config.STRATEGIES에서 찾고, 없으면 1,000만 원"""
     for spec in getattr(config, 'STRATEGIES', []):
         module = spec['strategy'].split('.')[0]
-        if book == f"{spec['account']}_{module}":
+        if book == (spec.get('book') or f"{spec['account']}_{module}"):
             return spec['capital']
     return 10_000_000
 

@@ -229,10 +229,13 @@ class KISClient:
         return rows
 
     def get_minute_bars(self, code, end='153000'):
-        """오늘 1분봉 전체 (09:00 ~ end, 시간순). 한 번에 30개씩 거꾸로 받아 이어 붙인다.
+        """오늘 정규장 1분봉 (09:00 ~ end, 시간순). 한 번에 30개씩 거꾸로 받아 이어 붙인다.
 
-        [{'time': 'HHMMSS', 'open', 'high', 'low', 'close', 'volume', 'value'(누적 거래대금)}]
+        [{'date', 'time': 'HHMMSS', 'open', 'high', 'low', 'close', 'volume', 'value'(누적 거래대금)}]
+        09:00보다 앞을 요청하면 서버가 전날 넥스트레이드 시간외(19:31 ~ 20:00) 봉을 주므로,
+        오늘 날짜이면서 09:00 ~ end 사이인 봉만 남기고, 그 앞으로 넘어가면 멈춘다.
         """
+        day = datetime.now().strftime('%Y%m%d')
         bars, until = {}, end
         for _ in range(20):
             data = self._get('/uapi/domestic-stock/v1/quotations/inquire-time-itemchartprice',
@@ -241,19 +244,20 @@ class KISClient:
                               'FID_INPUT_ISCD': code, 'FID_INPUT_HOUR_1': until,
                               'FID_PW_DATA_INCU_YN': 'Y'})
             rows = [r for r in data.get('output2', []) or [] if r.get('stck_cntg_hour')]
-            if not rows:
-                break
-            for r in rows:
+            today = [r for r in rows if r.get('stck_bsop_date') == day
+                     and '090000' <= r['stck_cntg_hour'] <= end]
+            for r in today:
                 bars[r['stck_cntg_hour']] = {
-                    'date': r.get('stck_bsop_date', ''), 'time': r['stck_cntg_hour'],
+                    'date': day, 'time': r['stck_cntg_hour'],
                     'open': int(self._num(r, 'stck_oprc')), 'high': int(self._num(r, 'stck_hgpr')),
                     'low': int(self._num(r, 'stck_lwpr')), 'close': int(self._num(r, 'stck_prpr')),
                     'volume': int(self._num(r, 'cntg_vol')), 'value': int(self._num(r, 'acml_tr_pbmn'))}
-            first = min(r['stck_cntg_hour'] for r in rows)
+            if not today or len(today) < len(rows):          # 전날·장 전으로 넘어갔으면 끝
+                break
+            first = min(r['stck_cntg_hour'] for r in today)
             if first <= '090000':
                 break
-            t = datetime.strptime(first, '%H%M%S') - timedelta(minutes=1)
-            until = t.strftime('%H%M%S')
+            until = (datetime.strptime(first, '%H%M%S') - timedelta(minutes=1)).strftime('%H%M%S')
         return [bars[k] for k in sorted(bars)]
 
     # ------------------------------------------------------------ 계좌 (주문하는 전략만)

@@ -2,6 +2,8 @@
 
     python tools/collect_minute.py              오늘 거래대금 상위 종목 + KODEX 200·인버스 + 보유 종목
     python tools/collect_minute.py 005930 ...   지정한 종목만
+    python tools/collect_minute.py --end 163000 --force
+                                                장 마감이 늦은 날(수능 날 16:30 등). --force는 이미 받은 파일도 다시 받음
 
 run.py가 장 마감 뒤(15:31 이후)에 자동으로 부른다. 직접 실행할 때도 15:31 이후에.
 data/minute/YYYYMMDD/<종목코드>.csv 로 저장 (git 제외). 이미 있는 파일은 건너뜀.
@@ -35,17 +37,17 @@ def default_codes(client, extra=()):
     return list(dict.fromkeys(codes))
 
 
-def collect(client, codes, log=print):
+def collect(client, codes, log=print, end='153000', force=False):
     day = datetime.now().strftime('%Y%m%d')
     out = ROOT / 'data' / 'minute' / day
     out.mkdir(parents=True, exist_ok=True)
     done = fail = 0
     for code in codes:
         path = out / f'{code}.csv'
-        if path.exists():
+        if path.exists() and not force:
             continue
         try:
-            bars = client.get_minute_bars(code)
+            bars = client.get_minute_bars(code, end=end)
         except (KISError, OSError) as ex:
             fail += 1
             log(f'분봉 실패 {code} : {ex}')
@@ -62,6 +64,10 @@ def collect(client, codes, log=print):
 
 
 if __name__ == '__main__':
+    args = sys.argv[1:]
+    end = args[args.index('--end') + 1] if '--end' in args else '153000'
+    force = '--force' in args
+    skip = {args.index('--end') + 1} if '--end' in args else set()      # --end 뒤의 시각은 종목코드가 아님
+    codes = [a for i, a in enumerate(args) if i not in skip and a.isdigit() and len(a) == 6]
     c = KISClient()
-    codes = sys.argv[1:] or default_codes(c)
-    collect(c, codes)
+    collect(c, codes or default_codes(c), end=end, force=force)

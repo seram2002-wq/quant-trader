@@ -11,6 +11,13 @@ v1 규칙 (2026-11-18 확정)
     매수 조건 : 오늘 시가 대비 -2% 이하 (-15%보다 많이 빠진 종목 제외)
     고르는 순서: 조건을 만족한 종목 중 시가 대비 가장 많이 떨어진 순
     매도      : 15:15 일괄 매도. 익절·손절 없음 (연구 방식대로 장 마감까지 보유)
+
+v2 (2026-11-20 가상 장부 시작): v1과 같고, 악재 공시가 난 종목만 후보에서 뺀다 (trader/disclosures.py)
+    보는 공시  : 직전 거래일 15:30 이후 처음 본 공시 + 그 뒤 오늘까지의 공시
+    악재       : 유상증자·전환사채·신주인수권부사채·교환사채 발행, 감자, 횡령·배임, 불성실공시법인,
+                 상장적격성, 관리종목, 투자주의환기, 매매거래정지, 회생절차, 파산, 공급계약해지, 영업정지, 소송
+    빈자리     : 하락 조건을 만족한 다음 순위 후보로 채움 (v1과 보유 수를 같게 해서 비교를 공정하게)
+    감시 종목  : v1과 같은 목록을 같이 씀
 """
 from strategies.base import Strategy
 from trader.symbols import is_etf
@@ -49,3 +56,29 @@ class CloseReversal(Strategy):
         if TAKE_PROFIT_PCT and quote['price'] >= position['avg_price'] * (1 + TAKE_PROFIT_PCT):
             return f'매입가 대비 +{TAKE_PROFIT_PCT:.0%} 익절'
         return None
+
+
+class CloseReversalV2(CloseReversal):
+    """v1 + 악재 공시 필터"""
+    VERSION = 'v2'
+    universe_key = 'CloseReversal'      # v1과 같은 감시 종목 목록
+
+    def __init__(self):
+        self.reported_bad, self.reported_watch = set(), set()    # 종목별 알림은 하루에 한 번씩만
+
+    def pick(self, candidates):
+        from trader.disclosures import scan
+        ranked = super().pick(candidates)
+        if not ranked:
+            return ranked
+        bad, watch = scan({c[0] for c in ranked})
+        for code, (group, word, title, seen, note) in bad.items():
+            if code not in self.reported_bad:
+                self.reported_bad.add(code)
+                self.notify(f'제외 : {code} 악재 공시 ({group}: {word}) "{title}" 처음 본 시각 {seen[11:16]}'
+                            + (f' - {note}' if note else ''))
+        for code, (word, title) in watch.items():
+            if code not in self.reported_watch:
+                self.reported_watch.add(code)
+                self.log(f'참고 : {code} 애매한 공시 ({word}) "{title}" - 거르지 않음')
+        return [c for c in ranked if c[0] not in bad]

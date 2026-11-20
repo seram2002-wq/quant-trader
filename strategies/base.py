@@ -18,6 +18,9 @@ class Strategy:
     hold_overnight = False      # True면 15:15 일괄 매도를 하지 않고 다음 날까지 보유
     exit_time = None            # HHMM. 이 전략의 장 마감 정리 시각 (None이면 config.EXIT_TIME)
     morning_exit = None         # HHMM. 정하면 전날 산 종목을 다음 날 이 시각에 모두 판다
+    universe_key = None         # 같은 값을 가진 전략끼리 감시 종목 목록을 같이 쓴다 (None이면 클래스 이름)
+    log = staticmethod(print)   # 실행기가 화면·로그 파일로 바꿔 끼운다
+    notify = staticmethod(print)  # 실행기가 슬랙 알림으로 바꿔 끼운다
 
     def universe(self, client):
         """감시할 종목 {code: (name, kind)}와 설명 문자열. 기본은 config.SYMBOLS

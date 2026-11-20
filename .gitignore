@@ -9,3 +9,5 @@ __pycache__/
 .venv/
 
 results/
+
+.tmp.driveupload/
