@@ -6,7 +6,9 @@
 전략 목록과 계좌(모의투자/가상) 설정은 config.py의 STRATEGIES에 있다.
 전략마다 장부, 슬랙 채널, 메시지 앞머리가 따로다.
 """
+import os
 import sys
+import threading
 import time
 import socket
 import importlib
@@ -79,6 +81,7 @@ class Runner:
         self.reported_hour = None
         self.done = False
         self.last_error = ''
+        self.picks = []
 
     # ------------------------------------------------------------ 준비
     def start(self):
@@ -190,7 +193,9 @@ class Runner:
                 reason = self.strategy.should_buy(info, quote)
                 if reason:
                     candidates.append((code, info, quote, reason))
-            for code, info, quote, reason in self.strategy.pick(candidates)[:slots]:
+            ranked = self.strategy.pick(candidates)
+            self.picks = [c[0] for c in ranked]     # NewsCheck가 읽는 매수 후보 순서 (매매에는 쓰지 않음)
+            for code, info, quote, reason in ranked[:slots]:
                 name, kind = self.symbols[code]
                 qty = self.broker.buy(code, name, kind, quote['price'], self.budget, reason)
                 if qty:
@@ -324,6 +329,7 @@ def main():
 
     dart_check = DartCheck()
     dart_check.run(recent=True)                     # 어제 저녁 공시까지 채우기
+    news_check = NewsCheck(client)
 
     while True:
         now = datetime.now()
@@ -331,6 +337,7 @@ def main():
             print('주말에는 실행하지 않습니다.')
             return
         dart_check.run()                            # 10분마다 (v2 매수 시간에는 1분마다) 오늘 새 공시
+        news_check.run(runners)                     # 뉴스 판정 그림자 기록 (따로 스레드, 매매에 안 씀)
         for r in runners:
             if r.done:
                 continue
@@ -376,6 +383,69 @@ class DartCheck:
             collect_recent() if recent else collect_dart(quiet=True, full=False)
         except Exception as ex:
             print('DART 공시 저장 실패 :', ex)
+
+
+class NewsCheck:
+    """뉴스 판정 그림자 기록 (trader/news_filter.py). 매매에 쓰지 않고 data/news/YYYYMMDD.csv에 쌓기만 한다
+
+    평소 20분마다 : 거래대금 상위 30종목(장 마감 반전 감시 목록과 같은 기준) + 보유 종목
+    마감 45분 전 ~ 30분 전(평소 14:45 ~ 15:00) 3분마다 : 각 전략의 매수 후보 상위 5종목만
+    네이버 검색은 따로 스레드에서 돌아 매매를 늦추지 않는다. 이전 검색이 아직 돌고 있으면 이번은 건너뛴다.
+    거래대금 순위 조회(한국투자 API 1번)만 매매와 같은 흐름에서 한다 (같은 API를 두 스레드가 동시에 쓰지 않게).
+    .env에 NAVER_CLIENT_ID, NAVER_CLIENT_SECRET이 없으면 아무것도 하지 않는다.
+    """
+    EVERY, FAST = 1200, 180                         # 초
+    FAST_WINDOW = (-45, -30)                        # 장 시간 기준 분 (trader/market.py)
+    TOP = 5
+
+    def __init__(self, client):
+        self.client = client
+        self.keys = (os.getenv('NAVER_CLIENT_ID', '').strip(), os.getenv('NAVER_CLIENT_SECRET', '').strip())
+        self.last = self.last_fast = 0.0
+        self.thread, self.seen = None, None
+
+    def codes(self, runners, now):
+        """이번에 볼 {종목코드: 종목명}. 아직 때가 아니면 None"""
+        lo, hi = (market.at(x) for x in self.FAST_WINDOW)
+        if lo <= hhmm(now) < hi:
+            if time.time() - self.last_fast < self.FAST:
+                return None
+            self.last_fast = time.time()
+            return {c: r.symbols[c][0] for r in runners for c in r.picks[:self.TOP] if c in r.symbols}
+        if time.time() - self.last < self.EVERY:
+            return None
+        self.last = time.time()
+        from strategies.close_reversal import CloseReversal
+        try:
+            watch, _ = CloseReversal().universe(self.client)
+        except (KISError, OSError) as ex:
+            print('뉴스 감시 종목 조회 실패 :', ex)
+            watch = {}
+        held = {c: (p.get('name', c), p.get('kind', 'stock')) for r in runners for c, p in r.broker.positions.items()}
+        return {c: name for c, (name, kind) in {**watch, **held}.items() if kind == 'stock'}
+
+    def run(self, runners, now=None):
+        if not all(self.keys) or (self.thread and self.thread.is_alive()):
+            return
+        now = now or datetime.now()
+        try:
+            codes = self.codes(runners, now)
+        except Exception as ex:                     # 매매 흐름 안이라 어떤 오류도 밖으로 내보내지 않는다
+            print('뉴스 감시 종목 고르기 실패 :', ex)
+            return
+        if not codes:
+            return
+        self.thread = threading.Thread(target=self.check, args=(codes, now), daemon=True)
+        self.thread.start()
+
+    def check(self, codes, now):
+        try:
+            from trader import news_filter
+            if self.seen is None:
+                self.seen = news_filter.load_seen(now.strftime('%Y%m%d'))
+            news_filter.check(codes, *self.keys, self.seen, now=now)
+        except Exception as ex:                     # 그림자 기록 실패가 매매에 영향 주지 않게
+            print('뉴스 판정 기록 실패 :', ex)
 
 
 def collect_minute_after_close(client, runners):
