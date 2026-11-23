@@ -77,3 +77,6 @@ REPORT_MINUTE = 30              # 매시 이 분에 전략별 잔고 알림
 LOOP_SLEEP = 5                  # 한 바퀴 다 본 뒤 쉬는 시간(초)
 QUOTE_TTL = 3                   # 같은 종목 현재가를 이 시간(초) 안에는 다시 조회하지 않고 같이 씀
 UNIVERSE_REFRESH = 600          # 감시 종목을 다시 고르는 간격(초)
+# 뉴스 판정 그림자 기록 (run.py NewsCheck). 2026-11-20 끔: 네이버 검색 API 약관(2026-09-07 시행)이
+# 검색 결과 장기 저장·평가 활용을 금지하는지 원문(developers.naver.com/notice/article/33400)으로 확인한 뒤 켤 것
+NEWS_SHADOW = False

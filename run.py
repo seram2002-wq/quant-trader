@@ -425,7 +425,7 @@ class NewsCheck:
         return {c: name for c, (name, kind) in {**watch, **held}.items() if kind == 'stock'}
 
     def run(self, runners, now=None):
-        if not all(self.keys) or (self.thread and self.thread.is_alive()):
+        if not config.NEWS_SHADOW or not all(self.keys) or (self.thread and self.thread.is_alive()):
             return
         now = now or datetime.now()
         try:

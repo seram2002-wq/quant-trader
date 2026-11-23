@@ -1,6 +1,6 @@
 """뉴스 판정 그림자 기록 (매매에는 쓰지 않고 data/news/YYYYMMDD.csv에 쌓기만 한다)
 
-네이버 뉴스 검색 API(.env의 NAVER_CLIENT_ID, NAVER_CLIENT_SECRET)로 종목명을 최신순 검색하고,
+네이버 뉴스 검색 API(네이버 클라우드 NAVER API HUB, .env의 NAVER_CLIENT_ID, NAVER_CLIENT_SECRET)로 종목명을 최신순 검색하고,
 기사 제목을 규칙 사전으로 판정해 저장한다. 언제 어떤 종목을 볼지는 run.py의 NewsCheck가 정한다.
 
 판정 (제목만, 공백을 지우고 비교)
@@ -30,7 +30,7 @@ import requests
 from trader.disclosures import previous_trading_day
 from trader.market import hours
 
-API_URL = 'https://openapi.naver.com/v1/search/news.json'
+API_URL = 'https://naverapihub.apigw.ntruss.com/search/v1/news'   # NAVER API HUB (옛 openapi.naver.com은 2026-06 이전)
 NEWS_DIR = Path(__file__).resolve().parent.parent / 'data' / 'news'
 FIELDS = ['time', 'code', 'name', 'verdict', 'keywords', 'title', 'link', 'pub_time']
 
@@ -92,7 +92,7 @@ def check(codes, client_id, secret, seen, now=None, log=print):
     for code, name in codes.items():
         try:
             res = requests.get(API_URL, timeout=5, params={'query': name, 'display': 20, 'sort': 'date'},
-                               headers={'X-Naver-Client-Id': client_id, 'X-Naver-Client-Secret': secret})
+                               headers={'X-NCP-APIGW-API-KEY-ID': client_id, 'X-NCP-APIGW-API-KEY': secret})
         except requests.RequestException as ex:
             log(f'뉴스 검색 실패 {name}({code}) : {ex}')
             continue

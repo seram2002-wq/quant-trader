@@ -50,7 +50,8 @@ class Check(unittest.TestCase):
             self.addCleanup(p.stop)
 
     def fake_get(self, url, timeout, params, headers):
-        assert headers['X-Naver-Client-Id'] == 'id' and params['sort'] == 'date'
+        assert headers['X-NCP-APIGW-API-KEY-ID'] == 'id' and headers['X-NCP-APIGW-API-KEY'] == 'sec'
+        assert url == nf.API_URL and params['sort'] == 'date'
         return mock.Mock(status_code=self.status, text='err', json=lambda: {'items': ITEMS})
 
     def rows(self):
@@ -78,6 +79,11 @@ class Check(unittest.TestCase):
 
 
 class Schedule(unittest.TestCase):
+    def setUp(self):
+        p = mock.patch.object(run.config, 'NEWS_SHADOW', True)                  # 켠 상태로 시험 (기본은 꺼짐)
+        p.start()
+        self.addCleanup(p.stop)
+
     def runner(self, picks=(), positions=None):
         return SimpleNamespace(picks=list(picks), symbols={c: (f'종목{c}', 'stock') for c in picks},
                                broker=SimpleNamespace(positions=positions or {}))
@@ -112,6 +118,13 @@ class Schedule(unittest.TestCase):
         nc.keys = ('id', 'sec')
         nc.run([], now=NOW)                                                     # 예외가 나오면 테스트 실패
         self.assertIsNone(nc.thread)
+
+    def test_switch_off_does_nothing_even_with_keys(self):
+        nc = run.NewsCheck(client=None)
+        nc.keys = ('id', 'sec')
+        with mock.patch.object(run.config, 'NEWS_SHADOW', False), mock.patch.object(nc, 'codes') as codes:
+            nc.run([])
+        codes.assert_not_called()
 
     def test_no_keys_does_nothing(self):
         nc = run.NewsCheck(client=None)
