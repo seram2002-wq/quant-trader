@@ -320,24 +320,38 @@ class KISClient:
         self._call('post', '/uapi/domestic-stock/v1/trading/order-rvsecncl',
                    TR_PREFIX + 'TTC0013U', retry=False, data=json.dumps(body))
 
-    def get_fill(self, order_no, code):
-        """오늘 주문의 체결 결과 (수량, 평균 체결가). 조회가 안 되면 None"""
+    def get_fill(self, order_no, code, side=None):
+        """오늘 주문의 체결 결과 (수량, 평균 체결가). 조회가 안 되면 None
+
+        모의투자 서버는 주문별 목록(output1)을 비워 보내고 합계(output2)만 준다 (11-23 확인).
+        side('buy'/'sell')를 주면 그때는 오늘 그 종목·방향의 체결 합계로 평균 체결가를 구한다.
+        shortcut: 같은 날 같은 종목을 같은 방향으로 두 번 이상 체결하면 합계 평균이 된다 (지금 전략은 하루 한 번)
+        """
         cano, prdt = self.account
         today = datetime.now().strftime('%Y%m%d')
-        try:
-            data = self._get('/uapi/domestic-stock/v1/trading/inquire-daily-ccld',
+
+        def query(odno, dvsn):
+            return self._get('/uapi/domestic-stock/v1/trading/inquire-daily-ccld',
                              TR_PREFIX + 'TTC8001R',
                              {'CANO': cano, 'ACNT_PRDT_CD': prdt,
                               'INQR_STRT_DT': today, 'INQR_END_DT': today,
-                              'SLL_BUY_DVSN_CD': '00', 'INQR_DVSN': '00', 'PDNO': code,
-                              'CCLD_DVSN': '00', 'ORD_GNO_BRNO': '', 'ODNO': order_no,
+                              'SLL_BUY_DVSN_CD': dvsn, 'INQR_DVSN': '00', 'PDNO': code,
+                              'CCLD_DVSN': '00', 'ORD_GNO_BRNO': '', 'ODNO': odno,
                               'INQR_DVSN_3': '00', 'INQR_DVSN_1': '',
                               'CTX_AREA_FK100': '', 'CTX_AREA_NK100': ''})
+        try:
+            data = query(order_no, '00')
+            for r in data.get('output1', []) or []:
+                if (r.get('odno') or '').lstrip('0') == (order_no or '').lstrip('0'):
+                    qty = int(self._num(r, 'tot_ccld_qty'))
+                    amt = self._num(r, 'tot_ccld_amt')
+                    return {'qty': qty, 'avg_price': amt / qty if qty else 0.0}
+            if side not in ('buy', 'sell'):
+                return None
+            total = query('', '02' if side == 'buy' else '01').get('output2') or {}
         except KISError:
             return None
-        for r in data.get('output1', []) or []:
-            if (r.get('odno') or '').lstrip('0') == (order_no or '').lstrip('0'):
-                qty = int(self._num(r, 'tot_ccld_qty'))
-                amt = self._num(r, 'tot_ccld_amt')
-                return {'qty': qty, 'avg_price': amt / qty if qty else 0.0}
-        return None
+        if isinstance(total, list):
+            total = total[0] if total else {}
+        qty = int(self._num(total, 'tot_ccld_qty'))
+        return {'qty': qty, 'avg_price': self._num(total, 'tot_ccld_amt') / qty} if qty else None

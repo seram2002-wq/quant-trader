@@ -85,7 +85,7 @@ class MockBroker(PaperBroker):
             self._save()
             return 0
 
-        fill = self.client.get_fill(order['order_no'], code) if order else None
+        fill = self.client.get_fill(order['order_no'], code, 'buy') if order else None
         avg = fill['avg_price'] if fill and fill['qty'] else \
             (self._held(code) or {}).get('avg_price') or price
         amount = round(avg * filled)
@@ -133,7 +133,7 @@ class MockBroker(PaperBroker):
             raise KISError(f'{p.get("name", code)}({code}) 매도가 아직 체결되지 않았습니다. '
                            f'다음 확인 때 다시 시도합니다.')
 
-        fill = self.client.get_fill(order['order_no'], code) if order else None
+        fill = self.client.get_fill(order['order_no'], code, 'sell') if order else None
         avg = fill['avg_price'] if fill and fill['qty'] else price
         amount = round(avg * sold)
         fee = round(amount * config.FEE_RATE)
