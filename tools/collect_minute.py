@@ -31,6 +31,12 @@ FIELDS = ['date', 'time', 'open', 'high', 'low', 'close', 'volume', 'value']
 
 def default_codes(client, extra=()):
     codes = list(ALWAYS) + list(extra)
+    try:                                             # 업종별 대장주 바구니 (장 마감 반전 v3 사후 분석용)
+        from trader import basket
+        b = basket.load()
+        codes += list(b['code']) if b is not None else []
+    except Exception as ex:                          # 바구니 문제로 분봉 저장 전체가 멈추지 않게
+        print('대장주 바구니 읽기 실패 :', ex)
     for market in ('0000', '0001', '1001'):          # 전체, 코스피, 코스닥 거래대금 상위 각 30
         try:
             codes += [r['code'] for r in client.get_trade_value_rank(market) if not is_etf(r['name'])]

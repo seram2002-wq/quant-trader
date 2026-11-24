@@ -31,6 +31,11 @@ STRATEGIES = [
     {'strategy': 'close_reversal.CloseReversalV2', 'account': 'paper', 'book': 'paper_close_reversal_v2',
      'capital': 10_000_000, 'budget': 0.24, 'max_positions': 4,
      'channel': 'PAPER_SLACK_CHANNEL'},
+    # 실험: 장 마감 반전 v3 = 업종별 대장주 바구니 + 업종 괴리율 필터 (2026-11-25 시작, 3개월·거른 사례 20건 뒤 판정)
+    # order 1: 바구니 36종목 시세 조회가 모의투자 판단을 늦추지 않게 모의투자 다음에 돈다
+    {'strategy': 'close_reversal.CloseReversalV3', 'account': 'paper', 'book': 'paper_close_reversal_v3',
+     'capital': 10_000_000, 'budget': 0.24, 'max_positions': 4,
+     'channel': 'PAPER_SLACK_CHANNEL', 'order': 1},
     # 실험: 밤사이 보유 (15:18 KODEX 200 매수, 다음 날 09:00 매도). 2026-11-20부터 2 ~ 3주만 참고로.
     # 슬리피지 0 = 장 마감·장 시작 동시호가 체결을 흉내 (왕복 비용 = 수수료 0.015% × 2)
     {'strategy': 'overnight_etf.OvernightEtf', 'account': 'paper',
@@ -54,6 +59,12 @@ SYMBOLS = {
     '114800': ('KODEX 인버스', 'etf'),
     '251340': ('KODEX 코스닥150선물인버스', 'etf'),
 }
+
+# ---------------------------------------------------------------- 업종별 대장주 바구니 (trader/basket.py)
+# 산업 분류(KSIC)로는 업종을 잘못 잡는 종목만 이름으로 직접 지정 (삼성전자는 KSIC상 '통신 및 방송 장비')
+SECTOR_OVERRIDE = {'삼성전자': '반도체'}
+# 산업 분류가 사업회사로 잡혀 자동으로 안 걸러지는 지주사 (이름). '기타 금융업'의 비금융 지주사는 규칙으로 빠짐
+HOLDING_EXCLUDE_LIST = ['두산', 'CJ', 'GS', '한화', '원익홀딩스', '에코프로']
 
 # ---------------------------------------------------------------- 체결 비용 (가상 체결과 손익 추정)
 # 실제와 비슷하게 하려고 넣는 값이며, 실제 수수료와 세율은 실전 전에 확인할 것

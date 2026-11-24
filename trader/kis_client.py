@@ -184,6 +184,15 @@ class KISClient:
             'warn': out.get('mrkt_warn_cls_code') or '',     # 00 없음, 01 투자주의, 02 투자경고, 03 투자위험
         }
 
+    def get_us_change(self, symbol, exchange):
+        """미국 종목·ETF의 직전 정규장 등락률 (0.0123 = +1.23%). exchange: 'NAS', 'NYS', 'AMS'
+        한국 장중에는 미국 장이 닫혀 있어 전날 종가 기준 등락률이 나온다 (모의투자 키로도 조회됨, 11-24 확인)"""
+        out = self._get('/uapi/overseas-price/v1/quotations/price', 'HHDFS00000300',
+                        {'AUTH': '', 'EXCD': exchange, 'SYMB': symbol}).get('output') or {}
+        if not out.get('rate'):
+            raise KISError(f'{symbol} 시세 없음')
+        return self._num(out, 'rate') / 100
+
     def get_trade_value_rank(self, market='0000'):
         """거래대금 상위 종목 (최대 30개): [{'code', 'name', 'price', 'value'}]
 

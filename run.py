@@ -70,6 +70,7 @@ class Runner:
         self.strategy.log = self.note.log               # 전략 안의 진행 상황도 같은 로그에
         self.strategy.notify = self.note.send           # 전략이 슬랙에 직접 알릴 때 (예: 악재 공시로 제외)
         book = spec.get('book') or f'{account}_{module_name}'   # 같은 파일의 두 버전을 동시에 돌릴 때 'book'으로 구분
+        self.strategy.book = book                       # 판단 기록을 장부 폴더에 남기는 전략용 (v3)
         if account == 'mock':
             self.broker = MockBroker(book, spec['capital'], self.strategy.VERSION, client, self.note)
         else:
@@ -296,7 +297,8 @@ def main():
     quotes = Quotes(client)
     # 가상 장부를 먼저 돌린다: 가상은 바로 체결되고, 모의투자는 주문·체결 확인에 시간이 걸려서
     # 그림자 장부가 모의투자와 같은 시점의 시세로 판단하게 하려는 것
-    specs = sorted(config.STRATEGIES, key=lambda s: s['account'] != 'paper')
+    # 'order': 1인 전략은 모의투자 뒤에 (종목이 많은 실험 장부가 모의투자 판단을 늦추지 않게)
+    specs = sorted(config.STRATEGIES, key=lambda s: (s.get('order', 0), s['account'] != 'paper'))
     runners = [Runner(spec, client, quotes) for spec in specs]
 
     if '--check' in sys.argv:
@@ -476,6 +478,16 @@ def collect_minute_after_close(client, runners):
         collect_dart()
     except Exception as ex:
         print('DART 공시 저장 실패 :', ex)
+    try:                                            # 장 마감 반전 v3 사후 분석 (오늘 분봉이 있어야 함)
+        from tools import v3_report
+        v3_report.run()
+    except Exception as ex:
+        print('v3 사후 분석 실패 :', ex)
+    try:                                            # 새 달이면 지난달 말 기준 대장주 바구니
+        from trader import basket
+        basket.ensure()
+    except Exception as ex:
+        print('대장주 바구니 만들기 실패 :', ex)
 
 
 if __name__ == '__main__':
