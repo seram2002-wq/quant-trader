@@ -119,6 +119,21 @@ def build(year, month, log=print):
     return out
 
 
+def history(start, end, log=print):
+    """연구용: start ~ end('YYYY-MM-DD') 사이 매월 마지막 거래일 기준 바구니 (select와 같은 규칙).
+    표 하나 (base 열 = 기준일). 끝 달은 그달 자료가 다 있어야 하므로 end는 지난 연말 등 확정된 날짜로"""
+    s = pd.read_csv(SECTOR_FILE, dtype={'Code': str})
+    sectors = {c: (i, p) for c, i, p in zip(s['Code'], s['Industry'], s['Products'])}
+    out = []
+    for year in range(int(start[:4]), int(end[:4]) + 1):
+        df = marcap.load(f'{year - 1}-08-01', f'{year}-12-31', log=lambda *_: None)
+        d = df['Date']
+        for base in d[(d >= start) & (d <= end) & (d.dt.year == year)].groupby(d.dt.month).max():
+            out.append(select(df, sectors, base).assign(base=base))
+        log(f'{year}년까지 바구니 {len(out)}개월')
+    return pd.concat(out, ignore_index=True)
+
+
 def ensure(today=None, log=print):
     """지난달 말 바구니가 없으면 만든다 (자료가 아직 없으면 다음에 다시)"""
     today = today or date.today()
