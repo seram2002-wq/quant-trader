@@ -26,6 +26,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 import config                                        # noqa: E402
+from trader.paper_broker import TRADE_FIELDS         # noqa: E402
 
 BOOK, SHADOW = 'paper_close_reversal_v3', 'paper_close_reversal'
 BUDGET, SLOTS, EXIT = 2_400_000, 4, '151500'
@@ -67,7 +68,8 @@ def realized(book, day):
     path = ROOT / 'data' / book / 'trades.csv'
     if not path.exists():
         return NAN
-    t = pd.read_csv(path, dtype={'code': str})
+    # 예전 장부는 머리줄에 version 칸이 없어서 칸 이름을 직접 준다
+    t = pd.read_csv(path, dtype={'code': str}, names=TRADE_FIELDS, skiprows=1, encoding='utf-8-sig')
     sells = t[(t['side'] == 'SELL') & t['time'].str.startswith(f'{day[:4]}-{day[4:6]}-{day[6:]}')]
     return float(pd.to_numeric(sells['profit']).sum())
 
