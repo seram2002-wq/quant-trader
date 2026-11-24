@@ -307,6 +307,10 @@ def main():
                 print('실패 :', ex)
         return
 
+    if datetime.now().strftime('%Y%m%d') in config.HOLIDAYS:
+        print('오늘은 휴장일입니다 (config.HOLIDAYS). 실행하지 않습니다.')
+        return
+
     lock = socket.socket()                          # 같은 프로그램이 두 개 돌지 않게
     try:
         lock.bind(('127.0.0.1', LOCK_PORT))
