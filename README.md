@@ -262,6 +262,13 @@ quant-trader/
 │   ├── marcap.py             # 거래소 전 종목 일별 시세 (FinanceData marcap, 상장폐지 포함)
 │   └── fundamentals.py       # DART 재무제표를 공시일 기준으로 정리 (PBR, TTM 이익 등)
 ├── research/                 # 백테스트 도구 (데이터 불러오기, 엔진, 채택 기준 판정, 예시) — research/README.md
+├── alpha_miner/              # 알파 마이너 v0: GPT가 수식 제안 → 2012 ~ 2019 안에서만 평가 → 피드백 (2020년 이후는 안 봄)
+│   ├── engine/               # 연산자, 안전한 수식 실행기 (eval 안 씀)
+│   ├── evaluation/           # IC·회전율, 2단계 평가 (IC 문턱 → 실제 구조 백테스트)
+│   ├── generator/            # GPT 프롬프트와 호출 (.env OPENAI_API_KEY, OPENAI_MODEL)
+│   ├── storage/              # 장부 data/research/miner/ledger.jsonl (시험한 수식 전부)
+│   ├── main.py               # 수식 몇 개만 IC·회전율 확인: python -m alpha_miner.main "수식"
+│   └── mine.py               # 루프: python -m alpha_miner.mine --rounds 5 --n 8
 ├── docs/
 │   └── backtest_summary.md   # 지금까지의 백테스트 정리
 ├── tools/                    # 백테스트용 데이터 받기
