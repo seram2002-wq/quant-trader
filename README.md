@@ -344,6 +344,7 @@ pip install -r requirements.txt
 | `KIS_ACCOUNT_NO` | 모의투자 계좌번호 `12345678-01` |
 | `SLACK_BOT_TOKEN` | 슬랙 봇 토큰 |
 | `MOCK_SLACK_CHANNEL`, `PAPER_SLACK_CHANNEL` | `#seram-quant`, `#paper-trading` (공개 채널) |
+| `LIVE_SLACK_CHANNEL` | (선택) 실시간 잔고판 채널, 없으면 `#seram-quant`. 메시지 하나를 1분마다 고쳐 써서 알림이 가지 않음 (`trader/live_board.py`) |
 | `DART_API_KEY` | (백테스트용, 선택) opendart.fss.or.kr 인증키 |
 | `KRX_ID`, `KRX_PW` | (백테스트용, 선택) data.krx.co.kr 정보데이터시스템 계정. DART 계정과 다름 |
 

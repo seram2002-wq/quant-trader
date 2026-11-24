@@ -26,6 +26,7 @@ from trader.paper_broker import PaperBroker      # noqa: E402
 from trader.mock_broker import MockBroker        # noqa: E402
 from trader.notifier import Notifier             # noqa: E402
 from trader import market                        # noqa: E402
+from trader.live_board import LiveBoard          # noqa: E402
 
 LOCK_PORT = 47285       # 중복 실행 방지용
 ACCOUNT_LABEL = {'mock': '모의', 'paper': '가상'}
@@ -336,6 +337,7 @@ def main():
     dart_check = DartCheck()
     dart_check.run(recent=True)                     # 어제 저녁 공시까지 채우기
     news_check = NewsCheck(client)
+    board = LiveBoard(Notifier('LIVE_SLACK_CHANNEL'))    # 슬랙 메시지 하나를 1분마다 고쳐 쓰는 잔고판
 
     while True:
         now = datetime.now()
@@ -356,11 +358,13 @@ def main():
                 if str(ex) != r.last_error:
                     r.last_error = str(ex)
                     r.note.send(f'오류 : {ex}')
+        board.run(runners, quotes)
         if all(r.done for r in runners) or hhmm(datetime.now()) >= market.at(config.STOP_TIME):
             for r in runners:
                 if not r.done and r.broker.positions and not r.strategy.hold_overnight:
                     r.note.send('주의 : 종료 시각까지 팔지 못한 종목이 있습니다. 직접 확인하세요.')
                 r.note.send('종료합니다.')
+            board.run(runners, quotes, final=True)
             collect_minute_after_close(client, runners)
             return
         time.sleep(config.LOOP_SLEEP)

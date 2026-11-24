@@ -8,6 +8,7 @@
     SLACK_BOT_TOKEN        슬랙 봇 토큰 (없으면 슬랙 없이 로그만 남김)
     MOCK_SLACK_CHANNEL     모의투자 전략 알림 채널
     PAPER_SLACK_CHANNEL    가상 전략 알림 채널
+    LIVE_SLACK_CHANNEL     실시간 잔고판 채널 (없으면 #seram-quant)
 """
 import os
 from datetime import datetime
@@ -15,7 +16,8 @@ from pathlib import Path
 
 LOG_DIR = Path(__file__).resolve().parent.parent / 'data' / 'logs'
 DEFAULT_CHANNELS = {'MOCK_SLACK_CHANNEL': '#seram-quant',
-                    'PAPER_SLACK_CHANNEL': '#paper-trading'}
+                    'PAPER_SLACK_CHANNEL': '#paper-trading',
+                    'LIVE_SLACK_CHANNEL': '#seram-quant'}     # 실시간 잔고판 (trader/live_board.py)
 
 
 class Notifier:
