@@ -125,6 +125,11 @@ class Report(unittest.TestCase):
         self.assertLess(v3_report.trade(10000, 10000), 0)                    # 같은 가격이면 비용만큼 손해
         self.assertNotEqual(v3_report.trade(10000, float('nan')), v3_report.trade(10000, float('nan')))
 
+    def test_replay_uses_first_passed_price(self):
+        d = pd.DataFrame({'code': ['A', 'A', 'B'], 'passed': [0, 1, 1], 'price': [9000, 10000, 20000]})
+        self.assertEqual(v3_report.replay(d, ['A'], {'A': 10000}), v3_report.trade(10000, 10000))   # 제외됐던 9000이 아니라 통과한 10000
+        self.assertEqual(v3_report.replay(d, [], {}), 0)
+
 
 if __name__ == '__main__':
     unittest.main()

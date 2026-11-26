@@ -9,8 +9,10 @@ run.py가 장 마감 뒤 분봉을 저장한 다음 자동으로 부른다. 판�
 가상 매매: 판단 기록의 가격에 사서 15:15 직전 분봉 종가에 판 것으로 계산 (가상 장부와 같은 슬리피지·수수료·세금, 240만 원)
     제외 종목    : 처음 제외한 시각의 가격으로. 마이너스면 피한 손실, 플러스면 놓친 수익
     필터 끈 v3   : 판단 시각 순서대로, 하락 조건 후보를 많이 떨어진 순으로 4종목까지 (같은 종목은 한 번)
-    필터 효과    = v3 실제 손익 - 필터 끈 v3     (거른 종목 대신 산 종목까지 반영한 필터의 실제 가치)
-    종목 범위 효과 = 필터 끈 v3 - v1 그림자 실제 손익 (판단 시각 차이도 섞여 있음)
+    v3 재현      : v3가 실제로 산 종목을 같은 방식으로 (판단 가격에 사서 15:15 직전 종가에 팖)
+    필터 효과    = v3 재현 - 필터 끈 v3        (같은 가격 기준이라 매도 시각 차이가 섞이지 않음, 2026-11-26부터)
+    실행 지연    = v3 실제 손익 - v3 재현      (실제로는 장부를 차례로 돌려 15:15 ~ 15:17에 팔린 차이)
+    종목 범위 효과 = 필터 끈 v3 - v1 그림자 실제 손익 (v1은 판단 기록이 없어 실제값. 판단·매도 시각 차이도 섞여 있음)
     ⑥ 직전 60분 거래량 비율 = (t-60분 ~ t) 분당 거래량 / (09:30 ~ t-60분) 분당 평균 (판단 시각 t까지의 자료만)
     마감 거래량 비율 = (14:30 ~ 15:30) / (09:30 ~ 14:30). 매수 뒤의 자료라 분석용으로만
 shortcut: 필터 끈 v3는 판단 기록이 있는 시각만 다시 돌린다. 실제 v3 자리가 다 차서 기록이 멈춘 뒤는 모르지만,
@@ -64,14 +66,28 @@ def vol_ratio(b, start, end, base_end):
     return recent / base if base else NAN
 
 
+def day_trades(book, day):
+    """그날 장부 매매 (없으면 빈 표)"""
+    path = ROOT / 'data' / book / 'trades.csv'
+    if not path.exists():
+        return pd.DataFrame(columns=TRADE_FIELDS)
+    # 예전 장부는 머리줄에 version 칸이 없어서 칸 이름을 직접 준다
+    t = pd.read_csv(path, dtype={'code': str}, names=TRADE_FIELDS, skiprows=1, encoding='utf-8-sig')
+    return t[t['time'].str.startswith(f'{day[:4]}-{day[4:6]}-{day[6:]}')]
+
+
 def realized(book, day):
     path = ROOT / 'data' / book / 'trades.csv'
     if not path.exists():
         return NAN
-    # 예전 장부는 머리줄에 version 칸이 없어서 칸 이름을 직접 준다
-    t = pd.read_csv(path, dtype={'code': str}, names=TRADE_FIELDS, skiprows=1, encoding='utf-8-sig')
-    sells = t[(t['side'] == 'SELL') & t['time'].str.startswith(f'{day[:4]}-{day[4:6]}-{day[6:]}')]
-    return float(pd.to_numeric(sells['profit']).sum())
+    t = day_trades(book, day)
+    return float(pd.to_numeric(t.loc[t['side'] == 'SELL', 'profit']).sum())
+
+
+def replay(d, codes, exit_of):
+    """codes를 처음 통과한 판단 가격에 사서 exit_of 가격에 판 손익 합"""
+    passed = d[d['passed'] == 1].groupby('code')['price'].first()
+    return sum(trade(passed.get(c, NAN), exit_of.get(c, NAN)) for c in codes)
 
 
 def unfiltered_picks(d):
@@ -111,12 +127,15 @@ def analyze(day):
     exit_of = dict(zip(table['code'], table['exit']))
     unfiltered = sum(trade(p, exit_of.get(c, NAN)) for c, p in picks)
     v3, v1 = realized(BOOK, day), realized(SHADOW, day)
+    t = day_trades(BOOK, day)
+    v3_replay = replay(d, t.loc[t['side'] == 'BUY', 'code'].unique(), exit_of)
     summary = {'day': day, 'candidates': len(table), 'excluded': len(ex), 'no_peer': int(d.loc[d['peers'].isna(), 'code'].nunique()),
                'us_rescue': int(table['us_rescue'].sum()),
                'avoided_loss': -ex[ex < 0].sum(), 'missed_gain': ex[ex > 0].sum(),
-               'v3': v3, 'unfiltered': unfiltered, 'filter_effect': v3 - unfiltered,
+               'v3': v3, 'unfiltered': unfiltered, 'filter_effect': v3_replay - unfiltered,
                'v1_shadow': v1, 'range_effect': unfiltered - v1,
-               'unfiltered_picks': ' '.join(c for c, _ in picks)}
+               'unfiltered_picks': ' '.join(c for c, _ in picks),
+               'v3_replay': v3_replay, 'exec_gap': v3 - v3_replay}
     return table, summary
 
 
@@ -133,7 +152,8 @@ def run(day=None, log=print):
     new.sort_values('day').to_csv(path, index=False, encoding='utf-8')
     log(f'v3 사후 분석 {day}: 후보 {s["candidates"]}, 제외 {s["excluded"]} '
         f'(피한 손실 {s["avoided_loss"]:,.0f}원, 놓친 수익 {s["missed_gain"]:,.0f}원) | '
-        f'v3 {s["v3"]:+,.0f} / 필터 끈 v3 {s["unfiltered"]:+,.0f} / v1 그림자 {s["v1_shadow"]:+,.0f} → '
+        f'v3 {s["v3"]:+,.0f} (재현 {s["v3_replay"]:+,.0f}, 실행 지연 {s["exec_gap"]:+,.0f}) / '
+        f'필터 끈 v3 {s["unfiltered"]:+,.0f} / v1 그림자 {s["v1_shadow"]:+,.0f} → '
         f'필터 효과 {s["filter_effect"]:+,.0f}, 종목 범위 효과 {s["range_effect"]:+,.0f}')
     return table, s
 
