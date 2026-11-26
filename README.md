@@ -364,7 +364,39 @@ python tools\fetch_research_data.py     # 일별 시세 2010년~, 장중 시세,
 python run.py --check     (선택) 지금 시점의 전략별 판단만 출력, 주문 안 함
 python run.py             장중 실행, 마감 10분 전(평소 15:20)에 스스로 종료
 python report.py          장 마감 후 results 보고서 갱신
+python -m tools.dashboard (선택) 지난 날 다시 보기 웹 전광판 → http://localhost:8642
 ```
+
+- 웹 전광판(`tools/dashboard.py`)은 `data/` 파일만 읽습니다 (API를 부르지 않아 run.py와 같이 켜 둬도 됨).
+  날짜를 고르면 장부별 하루 손익 곡선과 KODEX 200, 종목 1분봉 위 장부별 매수·매도 지점, v3 판단표와
+  업종 동료 비교, v3 누적 필터·종목 범위 효과가 나옵니다. 분봉은 장 마감 뒤(15:31) 저장되므로 그날 것은 그 뒤에 보입니다.
+  작업 스케줄러 'quant-trader dashboard'가 윈도우 로그인할 때 창 없이(pythonw) 켭니다. 끄려면 작업 관리자에서
+  pythonw.exe를 끝내거나 작업 스케줄러에서 그 작업을 중지합니다.
+- **팀 공유**: 각자 장 마감 뒤 `tools/team_export.py`가 자기 장부(매매 기록, 장 마감 총자산, 그날 매매한 종목 분봉)를
+  구글 드라이브 공유 폴더 `<TEAM_DIR>/<TEAM_NAME>/`로 내보냅니다 (API 키·.env는 안 나감, 사람당 하루 수백 KB).
+  전광판은 이 폴더를 읽어 사람별 탭과 **주간 랭킹** 탭(모의 장부만, 그 주 마지막 날 총자산 ÷ 지난주 마지막 날 총자산)을 보여 줍니다.
+  이 저장소는 run.py가 장 마감 작업 끝에 자동으로 돌립니다. 팀원은 `tools/team_export.py` 한 파일만 자기 저장소
+  `tools/`에 복사하고, `.env`에 `TEAM_DIR`, `TEAM_NAME`을 넣은 뒤 장 마감 뒤(15:31 이후)
+  `python tools/team_export.py`를 실행합니다 (작업 스케줄러 평일 15:45 등). 총자산은 그날만 쓸 수 있어
+  하루를 건너뛰면 그날 줄이 비고, 주간 수익률은 그 주에 있는 마지막 줄로 계산합니다.
+  v3 판단과 효과는 v3를 돌리는 사람 것만 나가고, 화면에서도 그 사람 탭에만 보입니다.
+- **팀 전광판(claude.ai 아티팩트)**: `python -m tools.artifact_export`가 웹 전광판과 같은 계산으로 `data/artifact/*.csv`를
+  만들고, Claude 예약 작업 '퀀트 팀 전광판 갱신'(평일 16:20 무렵)이 바뀐 파일만 아티팩트에 올립니다. 화면은
+  `tools/artifact_page.html` (claude.ai "Data" 대시보드 형식, d3). 아티팩트는 만든 사람의 claude.ai 계정에 있어서
+  그 계정이 없어지면 같이 사라집니다. 다른 사람 계정으로 옮길 때는 그 사람이 공유 폴더를 연결하고
+  `artifact_export.py`를 돌린 뒤, Claude에게 "tools/artifact_page.html로 Data 대시보드 아티팩트를 만들고 data/artifact의
+  CSV를 자료로 올려 줘"라고 새로 만들게 합니다 (링크와 댓글만 바뀌고 자료는 다시 만들어짐).
+
+### 팀원이 할 일 (팀 공유와 주간 랭킹)
+
+1. 구글 드라이브 PC 프로그램을 설치하고, 공유받은 `quant-team` 폴더를 "내 드라이브에 바로가기 추가"합니다.
+2. 이 저장소의 `tools/team_export.py` 한 파일을 자기 저장소 `tools/` 폴더에 넣습니다 (폴더가 없으면 만듦).
+   다른 파일은 필요 없습니다. 자기 `config.STRATEGIES`(두 형식 모두), `data/<장부>/trades.csv`·`state.json`,
+   `trader/kis_client.py`의 `KISClient().get_price`만 씁니다.
+3. 자기 `.env`에 두 줄을 넣습니다: `TEAM_DIR=` 자기 PC의 `quant-team` 경로, `TEAM_NAME=` 자기 이름.
+4. 장 마감 뒤 한 번 직접 실행해 봅니다: `.venv\Scripts\python tools\team_export.py`
+   (`팀 공유 : 장부 N개 ...`가 나오면 정상). 그다음 작업 스케줄러에 평일 15:45로 같은 명령을 등록합니다.
+5. 장 마감 총자산은 그날 실행해야만 남으니, PC를 끄는 날은 15:45 전에 한 번 직접 실행합니다.
 
 - **09:00 전에** 켭니다. 밤사이 보유가 전날 산 KODEX 200을 09:00에 팔고, 장 마감 반전은 14:30부터 판단합니다.
 - 시각은 모두 그날 장 시간 기준입니다 (`trader/market.py`). 전략과 `config.py`에는 "개장 N분 뒤(0 이상)" 또는

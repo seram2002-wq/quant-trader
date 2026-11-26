@@ -26,12 +26,13 @@ class Notifier:
         self.prefix = f'[{label}] ' if label else ''
         self.slack = None
         token = os.getenv('SLACK_BOT_TOKEN')
+        self.off_reason = '.env에서 SLACK_BOT_TOKEN을 찾지 못함'
         if token:
             try:
                 from slack_sdk import WebClient
                 self.slack = WebClient(token=token)
-            except ImportError:
-                pass
+            except ImportError:                     # 가상환경(.venv) 밖의 Python으로 실행한 경우가 대부분
+                self.off_reason = 'slack_sdk가 없음, .venv\\Scripts\\activate 뒤에 실행했는지 확인'
 
     def log(self, message):
         """화면과 로그 파일에만 남긴다."""
@@ -59,4 +60,4 @@ class Notifier:
 
     def status(self):
         return (f'켜짐 (채널 {self.channel})' if self.slack is not None
-                else '꺼짐 (.env에서 SLACK_BOT_TOKEN을 찾지 못함)')
+                else f'꺼짐 ({self.off_reason})')

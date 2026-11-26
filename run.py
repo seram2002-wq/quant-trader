@@ -492,6 +492,11 @@ def collect_minute_after_close(client, runners):
         basket.ensure()
     except Exception as ex:
         print('대장주 바구니 만들기 실패 :', ex)
+    try:                                            # 팀 공유 폴더로 장부 내보내기 (.env에 TEAM_DIR 있을 때만)
+        from tools import team_export
+        team_export.run()
+    except Exception as ex:
+        print('팀 공유 실패 :', ex)
 
 
 if __name__ == '__main__':

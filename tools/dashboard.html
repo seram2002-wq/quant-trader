@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>매매 다시 보기</title>
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<style>
+  :root { --bg: #f7f7f8; --card: #fff; --text: #1c1c1e; --muted: #6b6b72; --line: #e3e3e8;
+          --up: #d93a3a; --down: #2f6fd6; --accent: #4f46e5; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #111214; --card: #1b1c1f; --text: #ececf0; --muted: #9a9aa3; --line: #2c2d31;
+            --up: #f0605d; --down: #5b93f0; --accent: #8b85ff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.45 -apple-system, "Segoe UI", "Malgun Gothic", sans-serif; }
+  main { max-width: 1280px; margin: 0 auto; padding: 16px; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  h1 { font-size: 20px; margin: 0; }
+  h2 { font-size: 15px; margin: 0 0 8px; }
+  select { font: inherit; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--line);
+           background: var(--card); color: var(--text); }
+  .muted { color: var(--muted); }
+  .up { color: var(--up); } .down { color: var(--down); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-bottom: 12px; }
+  .card, .panel { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .card .name { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .card .pnl { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .panel { margin-bottom: 12px; }
+  .grid { display: grid; grid-template-columns: 200px 1fr; gap: 12px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .stocks { display: flex; flex-direction: column; gap: 4px; max-height: 520px; overflow: auto; }
+  @media (max-width: 760px) { .stocks { flex-direction: row; flex-wrap: wrap; max-height: none; } }
+  .stocks button { text-align: left; font: inherit; padding: 6px 8px; border-radius: 6px; cursor: pointer;
+                   border: 1px solid var(--line); background: transparent; color: var(--text); }
+  .stocks button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .chart { width: 100%; height: 320px; }
+  .chart.small { height: 220px; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  .scroll { overflow-x: auto; }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px; border-bottom: 1px solid var(--line); }
+  .tabs button { font: inherit; padding: 8px 14px; border: 0; background: transparent; color: var(--muted);
+                 cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tabs button.on { color: var(--text); font-weight: 600; border-bottom-color: var(--accent); }
+  .rank1 { font-weight: 700; }
+</style>
+</head>
+<body>
+<main>
+  <nav class="tabs" id="tabs" aria-label="탭"></nav>
+
+  <div id="rankView" hidden>
+    <header>
+      <h1>주간 랭킹</h1>
+      <select id="week" aria-label="주"></select>
+      <span class="muted">모의투자 계좌 장부만 · 주간 수익률 = 그 주 마지막 날 총자산 ÷ 지난주 마지막 날 총자산</span>
+    </header>
+    <section class="panel">
+      <div class="scroll"><table>
+        <thead><tr><th>순위</th><th>사람</th><th>장부</th><th>주간 수익률</th><th>손익(원)</th><th>매도</th><th>승률</th><th>가장 큰 손실</th></tr></thead>
+        <tbody id="rankRows"></tbody>
+      </table></div>
+      <p class="muted" id="rankNote"></p>
+    </section>
+    <section class="panel">
+      <h2>이번 주 누적 수익률 <span class="muted">(%)</span></h2>
+      <div class="legend" id="rankLegend"></div>
+      <div class="chart small" id="rankChart"></div>
+    </section>
+  </div>
+
+  <div id="replayView">
+  <header>
+    <h1>매매 다시 보기</h1>
+    <select id="day" aria-label="날짜"></select>
+    <span id="index" class="muted"></span>
+  </header>
+  <div class="cards" id="cards"></div>
+
+  <section class="panel">
+    <h2>장부별 하루 손익 <span class="muted">(자금 대비 %, 점선은 KODEX 200 시가 대비 %)</span></h2>
+    <div class="legend" id="legend"></div>
+    <div class="chart" id="pnlChart"></div>
+  </section>
+
+  <section class="grid">
+    <div class="panel"><h2>종목</h2><div class="stocks" id="stocks"></div></div>
+    <div class="panel">
+      <h2 id="stockTitle">종목을 고르세요</h2>
+      <div class="chart" id="barChart"></div>
+      <div id="peerBox" hidden>
+        <h2 style="margin-top:12px">업종 동료와 비교 <span class="muted">(시가 대비 %)</span></h2>
+        <div class="legend" id="peerLegend"></div>
+        <div class="chart small" id="peerChart"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel mine">
+    <h2>v3 판단 <span class="muted">(손익은 15:15 매도 재현, 행을 누르면 차트)</span></h2>
+    <div class="scroll"><table>
+      <thead><tr><th>종목</th><th>업종</th><th>처음 본 시각</th><th>판정</th><th>업종 대비</th><th>저점 근접</th><th>15:15 가격</th><th>재현 손익</th></tr></thead>
+      <tbody id="v3"></tbody>
+    </table></div>
+    <p class="muted" id="v3note"></p>
+  </section>
+
+  <section class="panel mine">
+    <h2>v3 누적 효과 <span class="muted">(원)</span></h2>
+    <div class="legend"><span><i class="dot" style="background:#4f46e5"></i> 필터 효과</span>
+      <span><i class="dot" style="background:#0d9488"></i> 종목 범위 효과 (v1 대비)</span></div>
+    <div class="chart small" id="effectChart"></div>
+  </section>
+  </div>
+</main>
+<script>
+const COLORS = ['#4f46e5', '#0d9488', '#d97706', '#db2777', '#2563eb', '#65a30d'];
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const won = x => (x > 0 ? '+' : '') + Math.round(x).toLocaleString('ko-KR');
+const pct = (x, d = 1) => (x > 0 ? '+' : '') + x.toFixed(d) + '%';
+const sign = x => x > 0 ? 'up' : x < 0 ? 'down' : '';
+let day, data, person = '', charts = [];
+
+function ts(hhmm) {        // 차트는 UTC로 그리므로 한국 시각 그대로 보이게 UTC 숫자로
+  return Date.UTC(+day.slice(0, 4), +day.slice(4, 6) - 1, +day.slice(6), +hhmm.slice(0, 2), +hhmm.slice(2)) / 1000;
+}
+function makeChart(id, track = true) {
+  const el = document.getElementById(id);
+  const c = LightweightCharts.createChart(el, {
+    autoSize: true,
+    layout: { background: { color: 'transparent' }, textColor: css('--muted'), fontSize: 11 },
+    grid: { vertLines: { color: css('--line') }, horzLines: { color: css('--line') } },
+    timeScale: { timeVisible: true, secondsVisible: false, borderColor: css('--line') },
+    rightPriceScale: { borderColor: css('--line') },
+    crosshair: { mode: 0 },
+  });
+  if (track) charts.push(c);
+  return c;
+}
+const pctFormat = { type: 'custom', formatter: p => p.toFixed(2) + '%' };
+
+async function get(url) {
+  const r = await fetch(url);
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.status);
+  return j;
+}
+
+async function loadDay() {
+  day = document.getElementById('day').value;
+  charts.forEach(c => c.remove()); charts = []; barSeries = null; peerSeries = [];
+  document.getElementById('index').textContent = '불러오는 중…';
+  data = await get(`/api/day?d=${day}&p=${encodeURIComponent(person)}`);
+
+  const idx = data.index || [];
+  document.getElementById('index').textContent =
+    idx.length ? `KODEX 200 시가 대비 ${pct(idx[idx.length - 1][1], 2)}` : 'KODEX 200 분봉 없음';
+
+  document.getElementById('cards').innerHTML = data.books.map((b, i) => `
+    <div class="card"><div class="name"><i class="dot" style="background:${COLORS[i % COLORS.length]}"></i>${b.label}</div>
+    <div class="pnl ${sign(b.pnl)}">${won(b.pnl)}원</div></div>`).join('');
+  document.getElementById('legend').innerHTML = data.books.map((b, i) =>
+    `<span><i class="dot" style="background:${COLORS[i % COLORS.length]}"></i> ${b.label}</span>`).join('');
+
+  const pc = makeChart('pnlChart');
+  data.books.forEach((b, i) => {
+    const s = pc.addLineSeries({ color: COLORS[i % COLORS.length], lineWidth: 2, priceFormat: pctFormat });
+    s.setData(b.curve.map(([m, v]) => ({ time: ts(m), value: v })));
+  });
+  if (idx.length) {
+    const s = pc.addLineSeries({ color: css('--muted'), lineWidth: 1, lineStyle: 2, priceFormat: pctFormat });
+    s.setData(idx.map(([m, v]) => ({ time: ts(m), value: v })));
+  }
+  pc.timeScale().fitContent();
+
+  const traded = new Set(data.trades.map(t => t.code));
+  const v3codes = new Set(data.v3.map(r => r.code));
+  document.getElementById('stocks').innerHTML = Object.entries(data.stocks).map(([code, name]) => `
+    <button data-code="${code}">${name} <span class="muted">${traded.has(code) ? '매매' : ''}${v3codes.has(code) && !traded.has(code) ? 'v3 후보' : ''}</span></button>`).join('');
+  document.querySelectorAll('#stocks button').forEach(b => b.onclick = () => showStock(b.dataset.code));
+
+  document.getElementById('v3').innerHTML = data.v3.map(r => `
+    <tr data-code="${r.code}"><td>${r.name}</td><td>${r.sector}</td><td>${r.first}</td>
+    <td>${r.excluded ? '<span class="down">제외</span>' : '<span class="up">통과</span>'}</td>
+    <td>${r.spread == null ? '비교 불가' : pct(r.spread * 100)}</td>
+    <td>${r.near_low == null ? '' : r.near_low.toFixed(2)}</td>
+    <td>${r.exit == null ? '' : Math.round(r.exit).toLocaleString('ko-KR')}</td>
+    <td class="${sign(r.pnl)}">${r.pnl == null ? '' : won(r.pnl)}</td></tr>`).join('');
+  document.querySelectorAll('#v3 tr').forEach(tr => tr.onclick = () => showStock(tr.dataset.code));
+  document.getElementById('v3note').textContent = data.v3.length ? '' : 'v3 판단 기록이 없는 날입니다.' +
+    (data.v3_error ? ` (${data.v3_error})` : '');
+
+  const ec = makeChart('effectChart');
+  let f = 0, g = 0;
+  const rows = data.report.filter(r => r.day <= day);
+  const fd = rows.map(r => ({ time: `${r.day.slice(0, 4)}-${r.day.slice(4, 6)}-${r.day.slice(6)}`, value: f += r.filter_effect || 0 }));
+  const gd = rows.map(r => ({ time: `${r.day.slice(0, 4)}-${r.day.slice(4, 6)}-${r.day.slice(6)}`, value: g += r.range_effect || 0 }));
+  const wonFormat = { type: 'price', precision: 0, minMove: 1 };
+  ec.addLineSeries({ color: '#4f46e5', lineWidth: 2, priceFormat: wonFormat }).setData(fd);
+  ec.addLineSeries({ color: '#0d9488', lineWidth: 2, priceFormat: wonFormat }).setData(gd);
+  ec.applyOptions({ timeScale: { timeVisible: false } });
+  ec.timeScale().fitContent();
+
+  barChart = makeChart('barChart');
+  peerChart = makeChart('peerChart');
+  const first = data.trades[0]?.code || data.v3[0]?.code || Object.keys(data.stocks)[0];
+  if (first) showStock(first); else document.getElementById('stockTitle').textContent = '이날 매매가 없습니다';
+}
+
+let barChart, peerChart, barSeries, peerSeries = [];
+async function showStock(code) {
+  document.querySelectorAll('#stocks button').forEach(b => b.classList.toggle('on', b.dataset.code === code));
+  const name = data.stocks[code] || code;
+  const rows = await get(`/api/bars?d=${day}&code=${code}&p=${encodeURIComponent(person)}`);
+  if (barSeries) barChart.removeSeries(barSeries);
+  barSeries = barChart.addCandlestickSeries({
+    upColor: css('--up'), downColor: css('--down'), borderVisible: false,
+    wickUpColor: css('--up'), wickDownColor: css('--down'),
+    priceFormat: { type: 'price', precision: 0, minMove: 1 },
+  });
+  barSeries.setData(rows.map(([m, o, h, l, c]) => ({ time: ts(m), open: o, high: h, low: l, close: c })));
+  const books = data.books.map(b => b.label);
+  barSeries.setMarkers(data.trades.filter(t => t.code === code).sort((a, b) => a.hhmm.localeCompare(b.hhmm)).map(t => ({
+    time: ts(t.hhmm), position: t.side === 'BUY' ? 'belowBar' : 'aboveBar',
+    color: COLORS[books.indexOf(t.book) % COLORS.length], shape: t.side === 'BUY' ? 'arrowUp' : 'arrowDown',
+    text: `${t.book.split('·')[0]} ${t.book.split(' ').pop()} ${t.side === 'BUY' ? '매수' : '매도'}`,
+  })));
+  barChart.timeScale().fitContent();
+  document.getElementById('stockTitle').textContent = rows.length ? `${name} (${code}) 1분봉` : `${name} (${code}) 분봉 없음`;
+
+  const v = data.v3.find(r => r.code === code);
+  const box = document.getElementById('peerBox');
+  box.hidden = !(v && v.peers);
+  if (box.hidden) return;
+  const codes = [code, ...v.peers.split(' ').filter(Boolean)];
+  const lines = await get(`/api/lines?d=${day}&codes=${codes.join(',')}`);
+  peerSeries.forEach(s => peerChart.removeSeries(s)); peerSeries = [];
+  codes.forEach((c, i) => {
+    if (!lines[c]) return;
+    const s = peerChart.addLineSeries({ color: i ? COLORS[(i + 2) % COLORS.length] : css('--text'),
+                                        lineWidth: i ? 1 : 2, priceFormat: pctFormat });
+    s.setData(lines[c].map(([m, x]) => ({ time: ts(m), value: x })));
+    peerSeries.push(s);
+  });
+  document.getElementById('peerLegend').innerHTML = codes.map((c, i) =>
+    `<span><i class="dot" style="background:${i ? COLORS[(i + 2) % COLORS.length] : css('--text')}"></i> ${data.stocks[c] || (data.names || {})[c] || c}${i ? '' : ' (이 종목)'}</span>`).join('');
+  peerChart.timeScale().fitContent();
+}
+
+async function openPerson(p) {
+  person = p;
+  document.getElementById('replayView').hidden = false;
+  document.getElementById('rankView').hidden = true;
+  document.querySelectorAll('.mine').forEach(e => e.hidden = p !== '');
+  const days = await get('/api/days?p=' + encodeURIComponent(person));
+  const sel = document.getElementById('day');
+  sel.innerHTML = days.map(d => `<option value="${d}">${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}</option>`).join('');
+  sel.onchange = () => loadDay().catch(e => alert(e.message));
+  if (days.length) await loadDay();
+}
+
+let rankChart;
+async function openRanking(week) {
+  document.getElementById('replayView').hidden = true;
+  document.getElementById('rankView').hidden = false;
+  const r = await get('/api/ranking' + (week ? '?w=' + week : ''));
+  const sel = document.getElementById('week');
+  const fmt = d => `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}`;
+  sel.innerHTML = r.weeks.map(w => `<option value="${w}" ${w === r.week ? 'selected' : ''}>${fmt(w)} 주</option>`).join('');
+  sel.onchange = () => openRanking(sel.value).catch(e => alert(e.message));
+  document.getElementById('rankRows').innerHTML = r.rows.map((x, i) => `
+    <tr class="${i ? '' : 'rank1'}"><td>${i + 1}</td><td>${x.person}</td><td>${x.label}</td>
+    <td class="${sign(x.ret)}">${pct(x.ret, 2)}</td><td class="${sign(x.pnl)}">${won(x.pnl)}</td>
+    <td>${x.sells}</td><td>${x.win == null ? '' : x.win.toFixed(0) + '%'}</td>
+    <td class="${sign(x.worst)}">${x.worst == null ? '' : won(x.worst)}</td></tr>`).join('');
+  document.getElementById('rankNote').textContent = r.rows.length ? '' :
+    '아직 공유 폴더에 모의 장부 기록이 없습니다. 각자 장 마감 뒤 tools/team_export.py가 돌아야 생깁니다.';
+  if (rankChart) rankChart.remove();
+  rankChart = makeChart('rankChart', false);
+  rankChart.applyOptions({ timeScale: { timeVisible: false } });
+  r.rows.forEach((x, i) => rankChart.addLineSeries({ color: COLORS[i % COLORS.length], lineWidth: 2, priceFormat: pctFormat })
+    .setData(x.curve.map(([d, v]) => ({ time: fmt(d), value: v }))));
+  rankChart.timeScale().fitContent();
+  document.getElementById('rankLegend').innerHTML = r.rows.map((x, i) =>
+    `<span><i class="dot" style="background:${COLORS[i % COLORS.length]}"></i> ${x.person} · ${x.label}</span>`).join('');
+}
+
+(async () => {
+  const ppl = await get('/api/people');
+  const tabs = [[ppl.me, () => openPerson('')], ...ppl.others.map(p => [p, () => openPerson(p)]),
+                ['주간 랭킹', () => openRanking()]];
+  const nav = document.getElementById('tabs');
+  nav.innerHTML = tabs.map(([name], i) => `<button data-i="${i}">${name}</button>`).join('');
+  nav.querySelectorAll('button').forEach(b => b.onclick = () => {
+    nav.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    tabs[+b.dataset.i][1]().catch(e => alert(e.message));
+  });
+  nav.querySelector('button').click();
+})();
+</script>
+</body>
+</html>
