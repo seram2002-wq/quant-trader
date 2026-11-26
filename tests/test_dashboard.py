@@ -26,5 +26,12 @@ class DayPnl(unittest.TestCase):
                          [('0859', 50), ('0900', 100), ('0901', 100), ('0902', 160)])
 
 
+    def test_book_without_trades_file(self):
+        from pathlib import Path
+        from tools.dashboard import trades
+        t = trades('없는_장부', Path('no_such_root'))
+        self.assertEqual(day_pnl(t, '20261125', {}), [])                # 칸이 있어 계산이 깨지지 않음
+
+
 if __name__ == '__main__':
     unittest.main()

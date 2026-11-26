@@ -64,8 +64,8 @@ def bars(day, code, root=DATA):
 
 def trades(book, root=DATA):
     path = root / book / 'trades.csv'
-    if not path.exists():
-        return pd.DataFrame(columns=TRADE_FIELDS)
+    if not path.exists():                            # 아직 매매가 없는 장부 (팀원 모멘텀 장부 등)
+        return pd.DataFrame(columns=TRADE_FIELDS + ['day', 'hhmm'])
     # 예전 장부는 머리줄에 version 칸이 없어서 칸 이름을 직접 준다
     t = pd.read_csv(path, dtype={'code': str}, names=TRADE_FIELDS, skiprows=1, encoding='utf-8-sig')
     t['day'] = t['time'].str[:10].str.replace('-', '')
@@ -168,6 +168,8 @@ def days_of(person=''):
     days = {p.name for p in (root / 'minute').iterdir() if p.name.isdigit()} if (root / 'minute').is_dir() else set()
     for b, *_ in bs:
         days |= set(trades(b, root)['day'].dropna())
+        if (root / b / 'equity.csv').exists():          # 매매 없는 날도 장 마감 총자산이 있으면 탭에 보이게
+            days |= set(pd.read_csv(root / b / 'equity.csv', dtype={'day': str})['day'])
     return sorted(days, reverse=True)
 
 
