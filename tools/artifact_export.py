@@ -37,7 +37,7 @@ def run(log=print):
         root = d.source(person)[0]
         for day in d.days_of(person):
             x = d.day_data(day, person)
-            if not x['books'] or all(not b['curve'] for b in x['books']) and not x['trades']:
+            if not x['books']:                       # 매매 없는 날도 장 마감 총자산이 있으면 넣는다 (days_of가 고른 날)
                 continue
             for b in x['books']:
                 daily.append({'person': person, 'day': day, 'book': b['label'], 'pnl': b['pnl']})
@@ -57,7 +57,7 @@ def run(log=print):
                            'first': r['first'], 'verdict': '제외' if r['excluded'] else '통과',
                            'spread': r['spread'], 'near_low': r['near_low'], 'exit': r['exit'], 'pnl': r['pnl'],
                            'peers': r.get('peers') or ''})
-            for code in codes - {''}:
+            for code in sorted(codes - {''}):           # 순서를 고정해야 내용이 같으면 파일도 같음
                 if (day, code) in bar_keys:
                     continue
                 b = d.bars(day, code, root)
