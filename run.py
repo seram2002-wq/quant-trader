@@ -489,6 +489,11 @@ def collect_minute_after_close(client, runners):
         v3_report.run()
     except Exception as ex:
         print('v3 사후 분석 실패 :', ex)
+    try:                                            # 밤사이 보유: S&P -1% 밤 10:30 매도 그림자 (docs 23절, 매매에 안 씀)
+        from tools import overnight_shadow
+        overnight_shadow.run(client)
+    except Exception as ex:
+        print('밤사이 그림자 기록 실패 :', ex)
     try:                                            # 새 달이면 지난달 말 기준 대장주 바구니
         from trader import basket
         basket.ensure()
