@@ -14,7 +14,8 @@ class MorningSell(unittest.TestCase):
         r = run.Runner.__new__(run.Runner)                  # 장부·API 없이 morning_sell만
         r.broker = SimpleNamespace(positions={'069500': {'time': '2026-11-26 15:18:02', 'name': 'KODEX 200'}})
         r.quotes = SimpleNamespace(get=lambda code: quote)
-        r.strategy = SimpleNamespace(morning_exit=0)
+        r.strategy = SimpleNamespace(morning_exit=0, morning_reason=lambda client, quote, t, default: default)
+        r.client = None
         r.prices, r.sold = {}, []
         r.sell = lambda code, price, reason: r.sold.append(price)
         return r

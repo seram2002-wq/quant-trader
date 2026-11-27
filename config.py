@@ -41,6 +41,10 @@ STRATEGIES = [
     {'strategy': 'overnight_etf.OvernightEtf', 'account': 'paper',
      'capital': 10_000_000, 'budget': 0.95, 'max_positions': 1,
      'channel': 'PAPER_SLACK_CHANNEL', 'slippage': 0.0},
+    # 실험: 밤사이 보유 v2 (같이 사고, 아침 매도만 전날 밤 SOXX에 따라: ≥0이면 09:02, <0이면 시가 +1% 반등 또는 11:00). 11-28 시작
+    {'strategy': 'overnight_etf.OvernightEtfV2', 'account': 'paper', 'book': 'paper_overnight_etf_v2',
+     'capital': 10_000_000, 'budget': 0.95, 'max_positions': 1,
+     'channel': 'PAPER_SLACK_CHANNEL', 'slippage': 0.0},
     # 실험: 멀티팩터 (15:05 종목 교체, 다음 날까지 보유)
     # 2026-11-18 백테스트에서 기준(연 10%)을 못 넘어 보류
     # {'strategy': 'multi_factor.MultiFactor', 'account': 'paper',

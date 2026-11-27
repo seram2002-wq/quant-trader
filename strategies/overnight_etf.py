@@ -48,3 +48,45 @@ class OvernightEtf(Strategy):
         if quote['price'] <= 0:
             return None
         return f'장 마감 전 {quote["price"]:,}원에 매수, 다음 날 시가 매도'
+
+
+class OvernightEtfV2(OvernightEtf):
+    """v0와 같이 장 마감 전에 사고, 다음 날 아침 파는 시점만 전날 밤 SOXX(미국 반도체 ETF)에 따라 바꾼다 — 2026-11-28 시작
+
+    SOXX ≥ 0 : 09:02에 매도 (09:01 봉이 끝난 뒤. 시가 직후 1 ~ 2분 갭 방향으로 더 미는 경향)
+    SOXX < 0 : 오늘 시가보다 +1% 오르면 매도, 11:00까지 못 오르면 11:00에 매도
+    SOXX를 못 받으면 v0처럼 바로 매도. 근거: docs/backtest_summary.md 23절 (2025-12 ~ 2026-11 아침 1분봉, 봉인 구간,
+    SOXX ≥ 0인 141일 09:01 봉 종가 +0.12%p, SOXX < 0인 97일 +1% 반등 +0.41%p, 0.9 ~ 1.1%가 고르게 좋음).
+    shortcut: 실전은 지금 가격이 +1%에 닿는 순간 팔아서 백테스트(1분봉 종가 기준)보다 조금 일찍 팔림,
+              미국 휴장 다음 날은 그 전 미국 장 등락으로 판단 (날짜를 안 봄)
+    """
+    VERSION = 'v2'
+    UP = 0.01                   # SOXX가 빠진 날, 시가 대비 이만큼 오르면 판다
+    WAIT_UP, DEADLINE = 2, 120  # 개장 뒤 분: SOXX가 오른 날 매도 시각(09:02), 빠진 날 마지막 시각(11:00)
+
+    def __init__(self):
+        self.soxx_day, self.soxx = None, None
+
+    def morning_reason(self, client, quote, t, default):
+        from datetime import datetime
+
+        from trader import market
+        today = datetime.now().strftime('%Y%m%d')
+        if self.soxx_day != today:
+            self.soxx_day = today
+            try:
+                self.soxx = client.get_us_change('SOXX', 'NAS')
+                self.log(f'전날 밤 SOXX {self.soxx:+.2%}')
+            except Exception as ex:                  # 미국 시세가 없어도 아침 매도는 해야 함
+                self.soxx = None
+                self.log(f'SOXX 조회 실패, 시가에 바로 매도 ({ex})')
+        if self.soxx is None:
+            return default + ' (SOXX 조회 실패)'
+        if self.soxx >= 0:
+            return f'전날 밤 SOXX {self.soxx:+.2%} → {market.at(self.WAIT_UP) // 100}:{market.at(self.WAIT_UP) % 100:02d} 매도' \
+                if t >= market.at(self.WAIT_UP) else None
+        if quote['open'] and quote['price'] >= quote['open'] * (1 + self.UP):
+            return f'전날 밤 SOXX {self.soxx:+.2%} → 시가 {quote["open"]:,} 대비 +{self.UP:.0%} 반등 매도'
+        if t >= market.at(self.DEADLINE):
+            return f'전날 밤 SOXX {self.soxx:+.2%} → {market.at(self.DEADLINE) // 100}:{market.at(self.DEADLINE) % 100:02d}까지 +{self.UP:.0%} 못 올라 매도'
+        return None

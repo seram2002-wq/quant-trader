@@ -229,7 +229,10 @@ class Runner:
                 if not quote.get('volume'):         # 시초가 직후 몇 초는 현재가가 아직 전날 종가 → 오늘 첫 거래 뒤에 판다
                     continue
                 self.prices[code] = quote['price']
-                self.sell(code, quote['price'], f'다음 날 {fmt(market.at(self.strategy.morning_exit))} 매도')
+                reason = self.strategy.morning_reason(self.client, quote, hhmm(now),
+                                                      f'다음 날 {fmt(market.at(self.strategy.morning_exit))} 매도')
+                if reason:
+                    self.sell(code, quote['price'], reason)
 
     def rebalance(self):
         """목표 종목에 없는 보유 종목은 팔고, 새 종목은 산다. 오늘 한 번만"""
@@ -489,11 +492,6 @@ def collect_minute_after_close(client, runners):
         v3_report.run()
     except Exception as ex:
         print('v3 사후 분석 실패 :', ex)
-    try:                                            # 밤사이 보유: S&P -1% 밤 10:30 매도 그림자 (docs 23절, 매매에 안 씀)
-        from tools import overnight_shadow
-        overnight_shadow.run(client)
-    except Exception as ex:
-        print('밤사이 그림자 기록 실패 :', ex)
     try:                                            # 새 달이면 지난달 말 기준 대장주 바구니
         from trader import basket
         basket.ensure()

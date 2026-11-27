@@ -31,6 +31,11 @@ class Strategy:
         import config
         return dict(config.SYMBOLS), 'config.SYMBOLS'
 
+    def morning_reason(self, client, quote, t, default):
+        """morning_exit 시각부터 매 바퀴 부른다 (오늘 첫 거래 뒤). 지금 팔면 매도 사유, 더 기다리면 None.
+        t: 지금 HHMM, default: 실행기가 만든 기본 사유. 기본은 바로 판다"""
+        return default
+
     def prepare(self, client, code, today):
         """하루에 한 번, 종목별로 판단에 필요한 값을 계산해 딕셔너리로 돌려준다.
 
