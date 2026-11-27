@@ -41,7 +41,7 @@ STRATEGIES = [
     {'strategy': 'overnight_etf.OvernightEtf', 'account': 'paper',
      'capital': 10_000_000, 'budget': 0.95, 'max_positions': 1,
      'channel': 'PAPER_SLACK_CHANNEL', 'slippage': 0.0},
-    # 실험: 밤사이 보유 v2 (같이 사고, 아침 매도만 전날 밤 SOXX에 따라: ≥0이면 09:02, <0이면 시가 +1% 반등 또는 11:00). 11-28 시작
+    # 실험: 밤사이 보유 v2 (같이 사고, 아침 매도만 전날 밤 SOXX에 따라: ≥0이면 09:02, <0이면 시가 +1% 반등 또는 11:00). 11-30 시작
     {'strategy': 'overnight_etf.OvernightEtfV2', 'account': 'paper', 'book': 'paper_overnight_etf_v2',
      'capital': 10_000_000, 'budget': 0.95, 'max_positions': 1,
      'channel': 'PAPER_SLACK_CHANNEL', 'slippage': 0.0},
