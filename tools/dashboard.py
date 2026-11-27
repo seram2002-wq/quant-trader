@@ -1,10 +1,10 @@
-"""지난 날 다시 보기 웹 전광판: 장부별 하루 손익 곡선, 1분봉 차트 위 매매 지점, v3 판단
+"""이 PC의 팀 전광판: claude.ai 팀 전광판과 같은 화면(artifact_page.html)·같은 계산, 이 PC에서만 열린다
 
     python -m tools.dashboard          http://localhost:8642 을 연다
 
+자료는 tools/artifact_export.py가 만드는 data/artifact/ (여기 있는 계산 함수를 씀). 페이지를 열 때 그 자료가
+FRESH초보다 오래됐으면 다시 만든다 (장 마감 뒤에는 팀원 종목 분봉을 받느라 한국투자 API를 조금 부름).
 탭: 나(이 PC의 data/), 팀원(.env의 TEAM_DIR 공유 폴더, tools/team_export.py가 내보낸 것), 주간 랭킹(모의 장부만)
-
-data/ 파일만 읽는다 (한국투자 API를 부르지 않아 run.py 매매와 상관없음). 이 PC에서만 열린다.
 손익은 장부 기록 기준: 실현 손익 + 들고 있는 종목의 (그 분 종가 × 수량 - 매수 금액).
 전날부터 들고 온 종목은 매입가 기준이라 밤사이 움직임도 들어간다 (슬랙 잔고판의 '오늘'과 같은 기준).
 """
@@ -12,6 +12,8 @@ import json
 import os
 import re
 import sys
+import threading
+import time
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -31,7 +33,6 @@ from tools.team_export import books as list_books    # noqa: E402
 from trader.paper_broker import TRADE_FIELDS         # noqa: E402
 
 DATA = ROOT / 'data'
-PAGE = Path(__file__).with_name('dashboard.html')
 INDEX = '069500'                                     # KODEX 200
 TEAM = Path(os.getenv('TEAM_DIR', '').strip() or ROOT / 'no_team')   # 구글 드라이브 공유 폴더 (tools/team_export.py)
 ME = os.getenv('TEAM_NAME', '').strip() or '나'
@@ -162,16 +163,6 @@ def day_data(day, person=''):
     return out
 
 
-def lines(day, codes):
-    """{code: [(hhmm, 시가 대비 %)]} 업종 동료와 겹쳐 보기용"""
-    out = {}
-    for c in codes:
-        b = bars(day, c)
-        if b is not None:
-            out[c] = [(m, (v / b['open'].iloc[0] - 1) * 100) for m, v in zip(b['hhmm'], b['close'])]
-    return out
-
-
 def days_of(person=''):
     """그 사람의 분봉이나 매매가 있는 날 (최근 날짜부터)"""
     root, bs = source(person)
@@ -230,6 +221,18 @@ def ranking(week=None):
 # 팀 전광판(claude.ai 아티팩트)을 이 PC에서: 같은 화면(artifact_page.html)에 같은 자료(data/artifact), 저장은 이 PC 파일에
 TOOLS = Path(__file__).parent
 STORE = DATA / 'team_store.json'                     # {모음 경로: {문서: 내용}}
+FRESH = 300                                          # 초
+_export_lock = threading.Lock()
+
+
+def refresh_data():
+    """화면 자료(data/artifact)가 FRESH초보다 오래됐으면 다시 만든다. 동시에 여러 번 열어도 한 번만"""
+    mark = DATA / 'artifact' / 'daily.csv'
+    with _export_lock:
+        if mark.exists() and time.time() - mark.stat().st_mtime < FRESH:
+            return
+        from tools import artifact_export
+        artifact_export.run(log=lambda *_: None)
 STORE_PATH = re.compile(r'^(data/team/(bubbles|reactions|strategy)|data/users/local/watch/people)/[A-Za-z0-9_\-.~:@+]{1,200}$')
 
 
@@ -283,7 +286,11 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         u = urlparse(self.path)
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
-        if u.path == '/team':
+        if u.path in ('/', '/team'):
+            try:
+                refresh_data()
+            except Exception as ex:                  # 못 만들어도 지난 자료로 연다
+                print('전광판 자료 다시 만들기 실패 :', ex)
             return self.send(200, team_page(), 'text/html; charset=utf-8')
         if u.path.startswith('/team/data/'):
             rows = team_data(u.path.rsplit('/', 1)[1])
@@ -293,30 +300,7 @@ class Handler(BaseHTTPRequestHandler):
         if re.fullmatch(r'/_blob/[0-9a-f]{32}', u.path):            # 프로필 사진 (아티팩트에 올린 것과 같은 이름)
             f = DATA / 'artifact' / 'blobs' / f'{u.path[7:]}.webp'
             return self.send(200, f.read_bytes(), 'image/webp') if f.exists() else self.send(404, {'error': '없는 사진'})
-        day, code, person = q.get('d', ''), q.get('code', ''), q.get('p', '')
-        if person not in ('', ME) and person not in people():      # 공유 폴더 밖 경로를 못 읽게
-            return self.send(400, {'error': '없는 사람'})
-        if not (day.isdigit() and len(day) == 8) and u.path not in ('/', '/api/days', '/api/people', '/api/ranking'):
-            return self.send(400, {'error': '날짜는 YYYYMMDD'})
-        try:
-            if u.path == '/':
-                return self.send(200, PAGE.read_bytes(), 'text/html; charset=utf-8')
-            if u.path == '/api/people':
-                return self.send(200, {'me': ME, 'others': [p for p in people() if p != ME]})
-            if u.path == '/api/ranking':
-                return self.send(200, ranking(q.get('w')))
-            if u.path == '/api/days':
-                return self.send(200, days_of(person))
-            if u.path == '/api/day':
-                return self.send(200, day_data(day, person))
-            if u.path == '/api/bars' and code.isdigit():
-                b = bars(day, code, source(person)[0])
-                return self.send(200, [] if b is None else b[['hhmm', 'open', 'high', 'low', 'close']].values.tolist())
-            if u.path == '/api/lines':
-                return self.send(200, lines(day, [c for c in q.get('codes', '').split(',') if c.isdigit()]))
-            self.send(404, {'error': '없는 주소'})
-        except Exception as ex:
-            self.send(500, {'error': str(ex)})
+        self.send(404, {'error': '없는 주소'})
 
     def send(self, status, body, kind='application/json; charset=utf-8'):
         if not isinstance(body, bytes):

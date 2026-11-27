@@ -364,12 +364,15 @@ python tools\fetch_research_data.py     # 일별 시세 2010년~, 장중 시세,
 python run.py --check     (선택) 지금 시점의 전략별 판단만 출력, 주문 안 함
 python run.py             장중 실행, 마감 10분 전(평소 15:20)에 스스로 종료
 python report.py          장 마감 후 results 보고서 갱신
-python -m tools.dashboard (선택) 지난 날 다시 보기 웹 전광판 → http://localhost:8642
+python -m tools.dashboard (선택) 이 PC의 팀 전광판 → http://localhost:8642
 ```
 
-- 웹 전광판(`tools/dashboard.py`)은 `data/` 파일만 읽습니다 (API를 부르지 않아 run.py와 같이 켜 둬도 됨).
-  날짜를 고르면 장부별 하루 손익 곡선과 KODEX 200, 종목 1분봉 위 장부별 매수·매도 지점, v3 판단표와
-  업종 동료 비교, v3 누적 필터·종목 범위 효과가 나옵니다. 분봉은 장 마감 뒤(15:31) 저장되므로 그날 것은 그 뒤에 보입니다.
+- 웹 전광판(`tools/dashboard.py`)은 claude.ai 팀 전광판과 **같은 화면**(`tools/artifact_page.html`)을 이 PC에서 띄웁니다.
+  사람별 탭(장부별 하루 손익 곡선과 KODEX 200, 종목 1분봉 위 매수·매도 지점, 들고 있던 종목, v3 판단표·업종 동료 비교·누적 효과)과
+  주간 랭킹(시상대·정비소, 트레이딩 룸, 칭호, 역지표 봇, 전략 훔쳐보기). 맨 위 버튼으로 페이지 전체를 라이트/다크로.
+  자료는 `data/artifact/`(아래 팀 전광판과 같음)이고, 열 때 5분보다 오래됐으면 그 자리에서 다시 만듭니다.
+  말풍선·리액션·찜·전략 설명은 이 PC의 `data/team_store.json`에만 저장됩니다 (claude.ai 팀 전광판과 따로).
+  분봉은 장 마감 뒤(15:31) 저장되므로 그날 것은 그 뒤에 보입니다.
   작업 스케줄러 'quant-trader dashboard'가 윈도우 로그인할 때 창 없이(pythonw) 켭니다. 끄려면 작업 관리자에서
   pythonw.exe를 끝내거나 작업 스케줄러에서 그 작업을 중지합니다.
 - **팀 공유**: 각자 장 마감 뒤 `tools/team_export.py`가 자기 장부(매매 기록, 장 마감 총자산, 그날 매매한 종목 분봉)를
