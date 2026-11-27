@@ -226,6 +226,8 @@ class Runner:
             p = self.broker.positions[code]
             if p.get('time', '')[:10] < today:
                 quote = self.quotes.get(code)
+                if not quote.get('volume'):         # 시초가 직후 몇 초는 현재가가 아직 전날 종가 → 오늘 첫 거래 뒤에 판다
+                    continue
                 self.prices[code] = quote['price']
                 self.sell(code, quote['price'], f'다음 날 {fmt(market.at(self.strategy.morning_exit))} 매도')
 
