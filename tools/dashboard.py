@@ -10,6 +10,7 @@ data/ 파일만 읽는다 (한국투자 API를 부르지 않아 run.py 매매와
 """
 import json
 import os
+import re
 import sys
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -226,10 +227,72 @@ def ranking(week=None):
     return week_rows(entries, week)
 
 
+# 팀 전광판(claude.ai 아티팩트)을 이 PC에서: 같은 화면(artifact_page.html)에 같은 자료(data/artifact), 저장은 이 PC 파일에
+TOOLS = Path(__file__).parent
+STORE = DATA / 'team_store.json'                     # {모음 경로: {문서: 내용}}
+STORE_PATH = re.compile(r'^(data/team/(bubbles|reactions|strategy)|data/users/local/watch/people)/[A-Za-z0-9_\-.~:@+]{1,200}$')
+
+
+def team_page():
+    """artifact_page.html의 스크립트는 저마다 따로 실행되게 감싸서(대시보드 형식처럼) 로컬 틀에 끼운다"""
+    page = (TOOLS / 'artifact_page.html').read_text(encoding='utf-8')
+    page = page.replace('<script>', '<script>(() => {').replace('</script>', '})();</script>')
+    return (TOOLS / 'team_local.html').read_text(encoding='utf-8').replace('<!--PAGE-->', page).encode('utf-8')
+
+
+def team_data(name):
+    """화면이 읽는 자료 하나: 전략 요약은 json, 나머지는 artifact_export가 만든 csv (빈 칸은 null, 숫자도 글자로)"""
+    if name == 'strategy':
+        return json.loads((TOOLS / 'strategy_meta.json').read_text(encoding='utf-8'))
+    path = DATA / 'artifact' / f'{name}.csv'
+    if not re.fullmatch(r'[a-z_0-9]+', name) or not path.exists():
+        return None
+    t = pd.read_csv(path, dtype=str, keep_default_na=False)
+    return [{k: (v if v != '' else None) for k, v in r.items()} for r in t.to_dict('records')]
+
+
+def store_rows(path):
+    s = json.loads(STORE.read_text(encoding='utf-8')) if STORE.exists() else {}
+    return [{**v, 'id': k} for k, v in s.get(path, {}).items()]
+
+
+def store_set(doc, data):
+    s = json.loads(STORE.read_text(encoding='utf-8')) if STORE.exists() else {}
+    path, name = doc.rsplit('/', 1)
+    s.setdefault(path, {})[name] = data
+    STORE.write_text(json.dumps(s, ensure_ascii=False, indent=1), encoding='utf-8')
+
+
 class Handler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        if urlparse(self.path).path != '/team/store':
+            return self.send(404, {'error': '없는 주소'})
+        n = int(self.headers.get('Content-Length') or 0)
+        if not 0 < n <= 10_000:
+            return self.send(400, {'error': '내용이 없거나 너무 큼'})
+        try:
+            body = json.loads(self.rfile.read(n))
+            doc, data = body['path'], body['data']
+        except (ValueError, KeyError, TypeError):
+            return self.send(400, {'error': '형식이 다름'})
+        if not isinstance(doc, str) or not STORE_PATH.match(doc) or not isinstance(data, dict):
+            return self.send(400, {'error': '저장할 수 없는 경로'})
+        store_set(doc, data)
+        self.send(200, {'ok': True})
+
     def do_GET(self):
         u = urlparse(self.path)
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
+        if u.path == '/team':
+            return self.send(200, team_page(), 'text/html; charset=utf-8')
+        if u.path.startswith('/team/data/'):
+            rows = team_data(u.path.rsplit('/', 1)[1])
+            return self.send(404, {'error': '없는 자료'}) if rows is None else self.send(200, rows)
+        if u.path == '/team/store':
+            return self.send(200, store_rows(q.get('path', '')))
+        if re.fullmatch(r'/_blob/[0-9a-f]{32}', u.path):            # 프로필 사진 (아티팩트에 올린 것과 같은 이름)
+            f = DATA / 'artifact' / 'blobs' / f'{u.path[7:]}.webp'
+            return self.send(200, f.read_bytes(), 'image/webp') if f.exists() else self.send(404, {'error': '없는 사진'})
         day, code, person = q.get('d', ''), q.get('code', ''), q.get('p', '')
         if person not in ('', ME) and person not in people():      # 공유 폴더 밖 경로를 못 읽게
             return self.send(400, {'error': '없는 사람'})

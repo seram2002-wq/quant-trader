@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>퀀트 팀 전광판 (로컬)</title>
+<!-- claude.ai 팀 전광판(tools/artifact_page.html)을 이 PC에서 그대로 띄우는 틀. dash·claude 대신 아래 작은 흉내를 씀 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+  :root { --cds-gap-xs: 4px; --cds-gap-sm: 8px; --cds-gap-md: 12px; --cds-gap-lg: 16px; --cds-gap-xl: 24px;
+          --cds-pad-sm: 6px; --cds-pad-md: 10px; --cds-pad-lg: 14px; --cds-radius: 10px;
+          --cds-font-size-caption: 12px; --cds-font-size-body: 14px; --cds-font-size-heading: 16px; --cds-font-size-title: 26px;
+          --cds-font-weight-medium: 600; --font-anthropic-serif: Georgia, "Times New Roman", serif;
+          --font-anthropic-sans: system-ui, "Malgun Gothic", sans-serif; --cds-shadow-popover: 0 6px 20px rgba(0,0,0,.15);
+          --color-bad: #d93a3a; }
+  body { margin: 0; padding: 16px; background: #e5e5ea; font: 14px/1.45 var(--font-anthropic-sans); }
+  .dash-select { font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--color-border-line, #ccc);
+                 background-color: var(--color-panel, #fff); color: var(--color-fg, #111); }
+  .dash-skeleton { opacity: .4; }
+  [hidden] { display: none !important; }     /* 대시보드 틀과 같게: display를 준 요소도 hidden이면 숨김 */
+  .local-note { max-width: 1280px; margin: 0 auto 8px; font-size: 12px; color: #6e6e73; }
+  .local-note a { color: inherit; }
+  #dash-root { max-width: 1280px; margin: 0 auto; }
+</style>
+<script>
+  // claude.ai 대시보드 형식의 dash / claude.use 중 이 페이지가 쓰는 것만 흉내
+  (() => {
+    const STORE = { bubbles: 'data/team/bubbles', reactions: 'data/team/reactions', strategy_edit: 'data/team/strategy',
+                    watch: 'data/users/local/watch/people' };
+    const sources = {}, status = {}, draws = {}, calcs = {}, onData = [];
+    const run = (name) => document.querySelectorAll(`[data-draw="${name}"]`).forEach((el) => {
+      try { draws[name](el); } catch (e) { console.error(name, e); }
+    });
+    const all = () => {
+      onData.forEach((f) => { try { f(); } catch (e) { console.error(e); } });
+      Object.keys(draws).forEach(run);
+    };
+    let timer;
+    const schedule = () => { clearTimeout(timer); timer = setTimeout(all, 30); };
+    const load = async (id) => {
+      status[id] = 'loading';
+      try {
+        const r = await fetch(STORE[id] ? `/team/store?path=${encodeURIComponent(STORE[id])}` : `/team/data/${id}`);
+        if (!r.ok) throw new Error(r.status);
+        sources[id] = await r.json();
+        status[id] = 'ok';
+      } catch (e) { status[id] = 'error'; }
+      schedule();
+    };
+    window.dash = {
+      colors: ['#5856D6', '#30B0C7', '#FF9500', '#FF2D55', '#007AFF', '#34C759'],
+      data(id) {
+        if (calcs[id]) {
+          const ins = calcs[id].inputs.map((i) => window.dash.data(i));
+          if (ins.some((x) => x.status !== 'ok')) return { status: 'loading', data: null };
+          try { return { status: 'ok', data: calcs[id].fn(...ins.map((x) => x.data)) }; } catch (e) { console.error(id, e); return { status: 'error', data: null }; }
+        }
+        if (!(id in status)) load(id);
+        return status[id] === 'ok' ? { status: 'ok', data: sources[id] } : { status: status[id], data: [] };
+      },
+      onData(fn) { onData.push(fn); },
+      draw(name, fn) { if (fn) draws[name] = fn; else if (draws[name]) run(name); },
+      calc(id, spec) { calcs[id] = spec; },
+      setLink() {}, params: () => ({}), setParams() {}, resetParams() {}, refresh() {},
+    };
+    window.claude = {
+      async use(name) {
+        if (name === 'user') return { id: async () => 'local' };
+        if (name !== 'db') throw new Error(`${name} 없음`);
+        return { doc: (path) => ({ async set(data) {
+          const r = await fetch('/team/store', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path, data }) });
+          if (!r.ok) throw new Error('저장 실패');
+          Object.entries(STORE).forEach(([id, p]) => { if (path.startsWith(p + '/')) delete status[id]; });
+          schedule();
+        } }) };
+      },
+    };
+    window.addEventListener('resize', schedule);
+    document.addEventListener('DOMContentLoaded', schedule);
+  })();
+</script>
+</head>
+<body>
+<p class="local-note">이 PC에서 보는 팀 전광판입니다. 자료는 마지막 <code>python -m tools.artifact_export</code> 기준이고, 말풍선·리액션·찜·전략 설명은 이 PC에만 저장됩니다. <a href="/">← 매매 다시 보기</a></p>
+<div id="dash-root">
+<!--PAGE-->
+</div>
+</body>
+</html>
