@@ -12,13 +12,38 @@
     v3.csv        v3 판단 (v3를 돌리는 사람만), v3_effect.csv 사람·날짜별 필터·종목 범위 효과
     ranking.csv   주간 랭킹 (모의 장부만), ranking_curve.csv 그 주 누적 수익률
 아티팩트에 올리는 일은 Claude가 한다 (이 스크립트는 파일만 만든다).
+먼저 팀원이 오늘 매매했거나 들고 있는 종목 중 이 PC에 오늘 1분봉이 없는 것을 한국투자 API로 받는다 (장 마감 뒤만,
+팀원 저장소에는 분봉 저장이 없어서. 내 PC 전광판도 같은 data/minute을 씀)
 """
 import csv
 import sys
+from datetime import datetime
 
 from tools import dashboard as d
 
 OUT = d.DATA / 'artifact'
+
+
+def fill_team_bars(log=print):
+    """팀원 오늘 매매·보유 종목의 오늘 1분봉 중 없는 것을 받는다. 받은 종목 수"""
+    now = datetime.now()
+    day = now.strftime('%Y%m%d')
+    if now.weekday() >= 5 or now.strftime('%H%M') < '1531':   # 오늘 분봉은 장 마감 뒤에만 다 있음
+        return 0
+    codes = set()
+    for person in d.people():
+        if person == d.ME:
+            continue
+        root, bs = d.source(person)
+        for b, *_ in bs:
+            t = d.trades(b, root)
+            codes |= set(t.loc[t['day'] == day, 'code']) | set(d.held_at_open(t, day))
+    missing = sorted(c for c in codes if not (d.DATA / 'minute' / day / f'{c}.csv').exists())
+    if missing:
+        from tools.collect_minute import collect
+        from trader.kis_client import KISClient
+        collect(KISClient(), missing, log=log)
+    return len(missing)
 
 
 def write(name, fields, rows):
@@ -30,6 +55,10 @@ def write(name, fields, rows):
 
 
 def run(log=print):
+    try:
+        fill_team_bars(log)
+    except Exception as ex:                          # 분봉을 못 받아도 자료는 만든다 (그 종목은 매입가로)
+        log(f'팀원 종목 분봉 받기 실패 : {ex}')
     OUT.mkdir(parents=True, exist_ok=True)
     daily, pnl, index, trades, bars, v3, effect, held = [], [], [], [], [], [], [], []
     persons = [d.ME] + [p for p in d.people() if p != d.ME]
