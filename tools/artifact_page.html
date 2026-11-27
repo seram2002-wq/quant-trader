@@ -2,7 +2,21 @@
 <meta name="dash-form" content="dashboard">
 <style>
   /* 한 줄 개념: 사람 탭 → 날짜 → 장부 카드 → 손익 곡선 → 종목 1분봉 → v3, 그리고 주간 랭킹 탭 */
-  .qt { --qt-up: var(--color-bad); --qt-down: #2f6fd6; display: flex; flex-direction: column; gap: var(--cds-gap-lg); }
+  /* 화면 모드: ☀️ 라이트 / 🌙 다크 둘 중 하나로 페이지 전체를 통일 (보는 사람 테마와 상관없이 고른 모드로) */
+  .qt { --rk-bg: #F5F5F7; --rk-card: #FFFFFF; --rk-fg: #1D1D1F; --rk-muted: #6E6E73; --rk-line: #E5E5EA; --rk-soft: #ECECF0;
+        --rk-up: #FF3B30; --rk-down: #007AFF; --rk-gold: #F5C542; --rk-silver: #C7CBD1; --rk-bronze: #D7975F; --rk-cut: #FF3B30;
+        --color-bg: var(--rk-bg); --color-panel: var(--rk-card); --color-fg: var(--rk-fg); --color-fg-muted: var(--rk-muted);
+        --color-border-line: var(--rk-line); --cds-text-secondary: var(--rk-muted); --cds-chart-grid: var(--rk-line);
+        --cds-chart-axis: var(--rk-line); --cds-chart-reference: var(--rk-muted); --cds-chart-muted: var(--rk-muted);
+        --cds-surface-popover: var(--rk-card); --cds-border: var(--rk-line); --qt-up: var(--rk-up); --qt-down: var(--rk-down);
+        color-scheme: light; background: var(--rk-bg); color: var(--rk-fg); border-radius: 24px; padding: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Apple SD Gothic Neo", var(--font-anthropic-sans), sans-serif;
+        display: flex; flex-direction: column; gap: var(--cds-gap-lg); }
+  .qt.qt-dark { --rk-bg: #000000; --rk-card: #1C1C1E; --rk-fg: #F5F5F7; --rk-muted: #8E8E93; --rk-line: #2C2C2E; --rk-soft: #2C2C2E;
+                --rk-up: #FF453A; --rk-down: #0A84FF; color-scheme: dark; }
+  .qt-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+  .qt .qt-card, .qt .qt-panel { border-radius: 18px; border-color: transparent; }
+  .rk-avatar { border-radius: 50%; object-fit: cover; flex: none; background: var(--rk-soft); }
   .qt-title { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; text-wrap: balance; }
   .qt-lede { margin: var(--cds-gap-xs) 0 0; color: var(--color-fg-muted); }
   .qt-tabs { display: flex; gap: var(--cds-gap-xs); flex-wrap: wrap; border-bottom: 1px solid var(--color-border-line); }
@@ -47,13 +61,7 @@
   .qt-v3 tbody tr { cursor: pointer; }
   .qt-up { color: var(--qt-up); } .qt-down { color: var(--qt-down); }
   /* 주간 랭킹: 애플 느낌 카드. 🏁 전광판(밝은 배경 고정) ↔ 📈 트레이딩 룸(검정 고정) — 보는 사람 테마와 상관없이 이 두 세계만 씀 */
-  .rk { --rk-bg: #F5F5F7; --rk-card: #FFFFFF; --rk-fg: #1D1D1F; --rk-muted: #6E6E73; --rk-line: #E5E5EA; --rk-soft: #F2F2F7;
-        --rk-up: #FF3B30; --rk-down: #007AFF; --rk-gold: #F5C542; --rk-silver: #C7CBD1; --rk-bronze: #D7975F; --rk-cut: #FF3B30;
-        position: relative; background: var(--rk-bg); color: var(--rk-fg); border-radius: 24px; padding: 20px;
-        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Apple SD Gothic Neo", var(--font-anthropic-sans), sans-serif;
-        font-variant-numeric: tabular-nums; }
-  .rk.rk-dark { --rk-bg: #000000; --rk-card: #1C1C1E; --rk-fg: #F5F5F7; --rk-muted: #8E8E93; --rk-line: #2C2C2E; --rk-soft: #2C2C2E;
-                --rk-up: #FF453A; --rk-down: #0A84FF; color-scheme: dark; }
+  .rk { position: relative; font-variant-numeric: tabular-nums; }
   .rk h2 { font-size: 17px; font-weight: 600; margin: 0 0 10px; letter-spacing: -0.01em; }
   .rk-top { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
   .rk-seg { display: inline-flex; background: var(--rk-soft); border-radius: 10px; padding: 2px; }
@@ -121,13 +129,19 @@
   .rk-form input { font: inherit; flex: 1 1 200px; min-width: 0; padding: 8px 10px; border: 1px solid var(--rk-line); border-radius: 10px;
                    background: var(--rk-card); color: var(--rk-fg); }
   .rk-star { color: #FF9F0A; }
-  @media (max-width: 560px) { .rk { padding: 12px; } .rk-podium { gap: 6px; } .rk-ret { font-size: 18px; } }
+  @media (max-width: 560px) { .qt { padding: 12px; } .rk-podium { gap: 6px; } .rk-ret { font-size: 18px; } }
 </style>
 
 <div class="qt">
-  <header>
-    <h1 class="qt-title" id="title">퀀트 팀 전광판</h1>
-    <p class="qt-lede" id="lede"><span data-draw="lede" class="dash-skeleton">—</span></p>
+  <header class="qt-head">
+    <div>
+      <h1 class="qt-title" id="title">퀀트 팀 전광판</h1>
+      <p class="qt-lede" id="lede"><span data-draw="lede" class="dash-skeleton">—</span></p>
+    </div>
+    <div class="rk-seg" role="group" aria-label="화면 모드">
+      <button type="button" id="mode-f1" aria-pressed="true">☀️ 라이트 · 🏁 전광판</button>
+      <button type="button" id="mode-room" aria-pressed="false">🌙 다크 · 📈 트레이딩 룸</button>
+    </div>
   </header>
 
   <nav class="qt-tabs" id="tabs" role="tablist" aria-label="사람과 주간 랭킹" data-draw="tabs"></nav>
@@ -190,10 +204,6 @@
 
   <section class="qt-sec rk" id="ranking" hidden>
     <div class="rk-top">
-      <div class="rk-seg" role="group" aria-label="보기 방식">
-        <button type="button" id="mode-f1" aria-pressed="true">🏁 전광판</button>
-        <button type="button" id="mode-room" aria-pressed="false">📈 트레이딩 룸</button>
-      </div>
       <select class="dash-select" id="week" aria-label="주" data-draw="weeks" data-source="ranking"></select>
     </div>
     <p class="rk-note">모의투자 계좌 장부만. 주간 수익률 = 그 주 마지막 날 장 마감 총자산 ÷ 지난주 마지막 날 총자산 − 1 (첫 주는 자금 대비).</p>
@@ -245,13 +255,24 @@
       <div class="rk-sheet">
         <button type="button" class="rk-x" id="rk-close" aria-label="닫기">✕</button>
         <h2 id="rk-modal-title">🔍 전략 훔쳐보기</h2>
-        <div data-draw="inspector" data-source="strategy ranking ranking_curve"></div>
+        <div data-draw="inspector" data-source="strategy strategy_edit ranking ranking_curve"></div>
         <div class="rk-actions">
           <button type="button" class="rk-btn rk-primary" id="act-copy" hidden>⚡ 전략 카피하기</button>
           <button type="button" class="rk-btn" id="act-star" hidden>👀 관심 전략 찜하기</button>
           <button type="button" class="rk-btn" id="act-unstar" hidden>★ 찜 해제</button>
           <span class="rk-badge rk-bad" id="act-bot" hidden>🚨 역지표 봇에 연동 중</span>
+          <button type="button" class="rk-btn" id="act-edit">✎ 전략 설명 고치기</button>
         </div>
+        <form id="strategy-form" class="rk-form" hidden>
+          <input id="st-strategy" maxlength="60" aria-label="전략 이름">
+          <input id="st-logic" maxlength="160" aria-label="핵심 로직">
+          <input id="st-entry" maxlength="160" aria-label="진입 조건">
+          <input id="st-exit" maxlength="160" aria-label="청산·손절 규칙">
+          <input id="st-risk" maxlength="160" aria-label="비용·리스크">
+          <button type="submit" class="rk-btn rk-primary">저장</button>
+          <button type="button" class="rk-btn" id="st-cancel">취소</button>
+          <p class="rk-note">위에서부터 전략 이름, 핵심 로직, 진입 조건, 청산·손절, 비용·리스크. 본인 전략은 본인이 고쳐 주세요 (편집 권한 필요).</p>
+        </form>
       </div>
     </div>
     <div class="rk-toast" id="toast-copied" hidden role="status">전략 요약을 클립보드에 복사했습니다</div>
@@ -602,6 +623,17 @@
   const reactOf = (person) => (ok('reactions') || []).find((x) => x.person === person) || { fire: 0, pray: 0, cold: 0 };
   const bubbleOf = (person) => ((ok('bubbles') || []).find((b) => b.person === person) || {}).text || '';
   const where = (r) => `week=${window.qtEnc(r.week)}&person=${window.qtEnc(r.person)}&book=${window.qtEnc(r.book)}`;
+  // 프로필 사진 (사람이 고른 고정 값)
+  const AVATAR = { 민재: '/_blob/4740c2b0fa5321c8ffefebcbbc69036b', 세람: '/_blob/03a7743a29993b0b53e85d92f89d5043',
+                   동균: '/_blob/7ada057b80dcf7a33bebb3a342e56c3f', 정현: '/_blob/36e26314951c19a5ccce46f0e27e7db4' };
+  const avatar = (person, size) => {
+    const i = document.createElement('img');
+    i.className = 'rk-avatar'; i.alt = person; i.width = size; i.height = size;
+    if (AVATAR[person]) i.src = AVATAR[person];
+    return i;
+  };
+  const metaOf = (person) => (ok('strategy_edit') || []).find((x) => x.person === person)
+    || (ok('strategy') || []).find((x) => x.person === person);
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
   dash.calc('rank_change', {
@@ -691,13 +723,13 @@
       const b = el('button', null, `${e} ${+re[k] || 0}`); b.type = 'button'; b.setAttribute('aria-label', `${r.person}에게 ${e}`);
       b.onclick = () => react(r.person, k); rx.append(b);
     });
-    box.append(bubble, name, el('div', 'rk-book', r.book), ret, won, badgeRow(r, rows), rx, inspectBtn(r));
+    box.append(bubble, avatar(r.person, +r.rank === 1 ? 84 : 68), name, el('div', 'rk-book', r.book), ret, won, badgeRow(r, rows), rx, inspectBtn(r));
     return box;
   };
 
   window.rkLayout = () => {
     const room = q.mode === 'room', n = weekRows().length;
-    document.querySelectorAll('#ranking').forEach((e) => e.classList.toggle('rk-dark', room));
+    document.querySelectorAll('.qt').forEach((e) => e.classList.toggle('qt-dark', room));
     document.querySelectorAll('#rk-f1').forEach((e) => { e.hidden = room; });
     document.querySelectorAll('#rk-room').forEach((e) => { e.hidden = !room; });
     document.querySelectorAll('#rk-cut, #rk-pit').forEach((e) => { e.hidden = room || n < 4; });
@@ -776,7 +808,8 @@
     box.replaceChildren(...sorted.map((r) => {
       const t = el('div', 'rk-tile');
       const top = el('div', 'rk-tile-top');
-      const name = el('div', 'rk-name', `${r.rank}위 ${r.person}`);
+      const name = el('div', 'rk-name');
+      name.append(avatar(r.person, 32), document.createTextNode(` ${r.rank}위 ${r.person}`));
       if (starred(r.person)) name.append(el('span', 'rk-star', '★'));
       const ret = el('div', `rk-ret ${window.qtSign(r.ret)}`, window.qtPct(r.ret));
       Object.assign(ret.dataset, { source: 'ranking', field: 'ret', where: where(r) });
@@ -827,15 +860,17 @@
 
   dash.draw('inspector', (box) => {
     const r = weekRows().find((x) => x.person === q.inspect);
-    const m = (ok('strategy') || []).find((x) => x.person === q.inspect);
+    const m = metaOf(q.inspect);
     box.replaceChildren();
     if (!r) { box.textContent = '—'; return; }
-    const head = el('p', 'rk-note', `${r.rank}위 · ${r.person} · ${r.book}`);
+    const head = el('div', 'rk-name');
+    head.append(avatar(r.person, 48), document.createTextNode(` ${r.rank}위 · ${r.person} · ${r.book}`));
     const dl = el('dl', 'rk-dl');
-    (m ? [['전략', m.strategy], ['핵심 로직', m.logic], ['진입 조건', m.entry], ['청산·손절', m.exit], ['비용·리스크', m.risk], ['출처', m.source]]
+    (m ? [['전략', m.strategy], ['핵심 로직', m.logic], ['진입 조건', m.entry], ['청산·손절', m.exit], ['비용·리스크', m.risk],
+          ['출처', m.source || `${m.person} 직접 작성 (${String(m.at || '').slice(0, 10)})`]]
        : [['전략', '요약이 아직 없습니다']]).forEach(([k, v]) => {
       const dd = el('dd', null, v);
-      if (m && k !== '출처') Object.assign(dd.dataset, { source: 'strategy', field: { 전략: 'strategy', '핵심 로직': 'logic', '진입 조건': 'entry', '청산·손절': 'exit', '비용·리스크': 'risk' }[k], where: `person=${window.qtEnc(r.person)}` });
+      if (m && k !== '출처') Object.assign(dd.dataset, { source: (ok('strategy_edit') || []).includes(m) ? 'strategy_edit' : 'strategy', field: { 전략: 'strategy', '핵심 로직': 'logic', '진입 조건': 'entry', '청산·손절': 'exit', '비용·리스크': 'risk' }[k], where: `person=${window.qtEnc(r.person)}` });
       dl.append(el('dt', null, k), dd);
     });
     const stat = el('p', 'rk-note');
@@ -873,13 +908,13 @@
     if (saved) f.hidden = true;
   }));
 
-  const closeModal = () => document.querySelectorAll('#rk-modal').forEach((m) => { m.hidden = true; });
+  const closeModal = () => document.querySelectorAll('#rk-modal, #strategy-form').forEach((m) => { m.hidden = true; });
   document.querySelectorAll('#rk-close').forEach((b) => b.addEventListener('click', closeModal));
   document.querySelectorAll('#rk-modal').forEach((m) => m.addEventListener('click', (ev) => { if (ev.target === m) closeModal(); }));
   document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') closeModal(); });
   document.querySelectorAll('#act-copy').forEach((b) => b.addEventListener('click', () => {
     const r = weekRows().find((x) => x.person === q.inspect) || {};
-    const m = (ok('strategy') || []).find((x) => x.person === q.inspect) || {};
+    const m = metaOf(q.inspect) || {};
     const text = JSON.stringify({ person: r.person, book: r.book, week: r.week, weekly_return_pct: num(r.ret), pnl: num(r.pnl),
                                   strategy: m.strategy, logic: m.logic, entry: m.entry, exit: m.exit, risk: m.risk }, null, 2);
     navigator.clipboard.writeText(text).then(() => toast('toast-copied'), () => toast('toast-copyfail'));
@@ -894,5 +929,24 @@
     } catch { toast('toast-fail'); }
   };
   document.querySelectorAll('#act-star').forEach((b) => b.addEventListener('click', () => setStar(true)));
+  const FIELDS = ['strategy', 'logic', 'entry', 'exit', 'risk'];
+  document.querySelectorAll('#act-edit').forEach((b) => b.addEventListener('click', () => {
+    const m = metaOf(q.inspect) || {};
+    FIELDS.forEach((f) => document.querySelectorAll(`#st-${f}`).forEach((e) => { e.value = m[f] || ''; }));
+    document.querySelectorAll('#strategy-form').forEach((f) => { f.hidden = false; });
+  }));
+  document.querySelectorAll('#st-cancel').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('#strategy-form').forEach((f) => { f.hidden = true; });
+  }));
+  document.querySelectorAll('#strategy-form').forEach((f) => f.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const row = { person: q.inspect, at: new Date().toISOString() };
+    FIELDS.forEach((k) => { row[k] = ((f.querySelector(`#st-${k}`) || {}).value || '').trim(); });
+    try {
+      const db = await claude.use('db');
+      await db.doc(`data/team/strategy/${pid(q.inspect)}`).set(row);
+      f.hidden = true;
+    } catch { toast('toast-fail'); }
+  }));
   document.querySelectorAll('#act-unstar').forEach((b) => b.addEventListener('click', () => setStar(false)));
 </script>
