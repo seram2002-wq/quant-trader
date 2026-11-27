@@ -46,29 +46,82 @@
   .qt-table .qt-l { text-align: left; }
   .qt-v3 tbody tr { cursor: pointer; }
   .qt-up { color: var(--qt-up); } .qt-down { color: var(--qt-down); }
-  /* 시상대: 가운데 1위가 가장 높고, 2위 왼쪽, 3위 오른쪽. 받침 글자는 메달 색 위라 두 테마 모두 어두운 글자 */
-  .qt-podium { display: flex; align-items: flex-end; justify-content: center; gap: var(--cds-gap-md); min-height: 320px; padding-top: var(--cds-gap-md); }
-  .qt-step { flex: 1 1 0; max-width: 220px; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-  .qt-bubble { position: relative; background: var(--color-bg); border: 1px solid var(--color-border-line); border-radius: 12px;
-               padding: 6px 10px; margin-bottom: 6px; font-size: var(--cds-font-size-caption); text-align: center; max-width: 100%; overflow-wrap: anywhere; }
-  .qt-bubble::after { content: ""; position: absolute; left: 50%; bottom: -6px; width: 10px; height: 10px; background: var(--color-bg);
-                      border-right: 1px solid var(--color-border-line); border-bottom: 1px solid var(--color-border-line); transform: translateX(-50%) rotate(45deg); }
-  .qt-bubble.qt-empty { color: var(--color-fg-muted); }
-  .qt-edit { font: inherit; font-size: 11px; border: 0; background: transparent; color: var(--color-fg-muted); cursor: pointer; padding: 0 0 0 4px; }
-  .qt-edit:focus-visible { outline: 2px solid var(--color-fg); }
-  .qt-who { font-weight: var(--cds-font-weight-medium); }
-  .qt-book { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); text-align: center; }
-  .qt-ret { font-family: var(--font-anthropic-serif); font-size: var(--cds-font-size-heading); font-variant-numeric: tabular-nums; }
-  .qt-block { width: 100%; border-radius: var(--cds-radius) var(--cds-radius) 0 0; display: flex; justify-content: center; padding-top: 8px;
-              font-family: var(--font-anthropic-serif); font-size: 28px; color: #1c1c1e; }
-  .qt-r1 .qt-block { height: 140px; background: #e8c35a; }
-  .qt-r2 .qt-block { height: 100px; background: #c9ced6; }
-  .qt-r3 .qt-block { height: 70px; background: #d39a6a; }
-  .qt-bubble-form { display: flex; gap: var(--cds-gap-sm); flex-wrap: wrap; align-items: center; margin-top: var(--cds-gap-md); }
-  .qt-bubble-form input { font: inherit; flex: 1 1 200px; min-width: 0; padding: 6px 8px; border: 1px solid var(--color-border-line);
-                          border-radius: var(--cds-radius); background: var(--color-bg); color: var(--color-fg); }
-  .qt-btn { font: inherit; padding: 6px 12px; border-radius: var(--cds-radius); border: 1px solid var(--color-border-line);
-            background: var(--color-panel); color: var(--color-fg); cursor: pointer; }
+  /* 주간 랭킹: 애플 느낌 카드. 🏁 전광판(밝은 배경 고정) ↔ 📈 트레이딩 룸(검정 고정) — 보는 사람 테마와 상관없이 이 두 세계만 씀 */
+  .rk { --rk-bg: #F5F5F7; --rk-card: #FFFFFF; --rk-fg: #1D1D1F; --rk-muted: #6E6E73; --rk-line: #E5E5EA; --rk-soft: #F2F2F7;
+        --rk-up: #FF3B30; --rk-down: #007AFF; --rk-gold: #F5C542; --rk-silver: #C7CBD1; --rk-bronze: #D7975F; --rk-cut: #FF3B30;
+        position: relative; background: var(--rk-bg); color: var(--rk-fg); border-radius: 24px; padding: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Apple SD Gothic Neo", var(--font-anthropic-sans), sans-serif;
+        font-variant-numeric: tabular-nums; }
+  .rk.rk-dark { --rk-bg: #000000; --rk-card: #1C1C1E; --rk-fg: #F5F5F7; --rk-muted: #8E8E93; --rk-line: #2C2C2E; --rk-soft: #2C2C2E;
+                --rk-up: #FF453A; --rk-down: #0A84FF; color-scheme: dark; }
+  .rk h2 { font-size: 17px; font-weight: 600; margin: 0 0 10px; letter-spacing: -0.01em; }
+  .rk-top { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .rk-seg { display: inline-flex; background: var(--rk-soft); border-radius: 10px; padding: 2px; }
+  .rk-seg button { font: inherit; font-size: 13px; border: 0; background: transparent; color: var(--rk-fg); padding: 6px 14px; border-radius: 8px; cursor: pointer; }
+  .rk-seg button[aria-pressed="true"] { background: var(--rk-card); box-shadow: 0 1px 3px rgba(0,0,0,.15); font-weight: 600; }
+  .rk-note { font-size: 12px; color: var(--rk-muted); margin: 8px 0 0; }
+  .rk-card { background: var(--rk-card); border-radius: 18px; padding: 16px; margin-top: 16px; min-width: 0; }
+  .rk-podium { display: flex; align-items: flex-end; justify-content: center; gap: 12px; margin-top: 16px; min-height: 340px; }
+  .rk-step { flex: 1 1 0; max-width: 230px; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .rk-bubble { position: relative; background: var(--rk-card); border-radius: 14px; padding: 8px 12px; font-size: 12px; text-align: center;
+               max-width: 100%; overflow-wrap: anywhere; box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 4px; }
+  .rk-bubble::after { content: ""; position: absolute; left: 50%; bottom: -6px; width: 12px; height: 12px; background: var(--rk-card); transform: translateX(-50%) rotate(45deg); }
+  .rk-bubble.rk-empty { color: var(--rk-muted); }
+  .rk-edit { font: inherit; font-size: 11px; border: 0; background: transparent; color: var(--rk-muted); cursor: pointer; padding: 0 0 0 4px; }
+  .rk-name { font-weight: 600; font-size: 15px; display: flex; gap: 4px; align-items: center; }
+  .rk-book { font-size: 11px; color: var(--rk-muted); text-align: center; }
+  .rk-ret { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+  .rk-won { font-size: 12px; color: var(--rk-muted); }
+  .rk-badges { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+  .rk-badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--rk-soft); color: var(--rk-fg); white-space: nowrap; }
+  .rk-badge.rk-bad { background: color-mix(in srgb, var(--rk-up) 15%, transparent); color: var(--rk-up); }
+  .rk-react { display: flex; gap: 4px; }
+  .rk-react button, .rk-chip, .rk-btn { font: inherit; font-size: 12px; border: 0; border-radius: 999px; background: var(--rk-soft);
+                                        color: var(--rk-fg); padding: 4px 10px; cursor: pointer; }
+  .rk-chip[aria-pressed="true"] { background: var(--rk-fg); color: var(--rk-bg); }
+  .rk-btn.rk-primary { background: var(--rk-down); color: #FFFFFF; font-weight: 600; padding: 8px 16px; }
+  .rk-react button:focus-visible, .rk-btn:focus-visible, .rk-chip:focus-visible, .rk-seg button:focus-visible, .rk-edit:focus-visible { outline: 2px solid var(--rk-down); outline-offset: 2px; }
+  .rk-block { width: 100%; border-radius: 14px 14px 0 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+              padding-top: 10px; font-size: 30px; font-weight: 700; color: #1D1D1F; }
+  .rk-p1 .rk-block { height: 150px; background: linear-gradient(180deg, #FFE08A, var(--rk-gold)); }
+  .rk-p2 .rk-block { height: 110px; background: linear-gradient(180deg, #E5E7EB, var(--rk-silver)); }
+  .rk-p3 .rk-block { height: 80px; background: linear-gradient(180deg, #F0B98A, var(--rk-bronze)); }
+  .rk-cut { margin: 18px 0 0; border-top: 2px dashed var(--rk-cut); text-align: center; color: var(--rk-cut); font-size: 12px; font-weight: 600; }
+  .rk-cut span { position: relative; top: -10px; background: var(--rk-bg); padding: 0 10px; }
+  .rk-pit { background: var(--rk-card); border: 1px dashed var(--rk-line); border-radius: 18px; padding: 14px; margin-top: 4px; }
+  .rk-pit-title { font-size: 13px; font-weight: 600; color: var(--rk-muted); margin-bottom: 8px; }
+  .rk-pitrow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .rk-pitrow .rk-bubble { flex: 1 1 200px; text-align: left; }
+  .rk-pitrow .rk-bubble::after { display: none; }
+  .rk-bench { display: inline-flex; gap: 8px; align-items: baseline; background: var(--rk-card); border-radius: 12px; padding: 8px 14px; margin-top: 16px; }
+  .rk-bench b { font-size: 18px; }
+  .rk-sort { display: flex; gap: 6px; margin-top: 12px; }
+  .rk-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 12px; }
+  .rk-tile { background: var(--rk-card); border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .rk-tile-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .rk-spark { width: 100%; height: 46px; display: block; }
+  .rk-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .rk-table th, .rk-table td { padding: 8px; border-bottom: 1px solid var(--rk-line); text-align: right; white-space: nowrap; }
+  .rk-table th { font-size: 11px; color: var(--rk-muted); font-weight: 500; }
+  .rk-table .qt-l { text-align: left; }
+  .rk-table tr.rk-bot td { background: color-mix(in srgb, var(--rk-down) 8%, transparent); font-style: italic; }
+  .rk .qt-up { color: var(--rk-up); } .rk .qt-down { color: var(--rk-down); }
+  .rk-modal { position: absolute; inset: 0; background: rgba(0,0,0,.4); border-radius: 24px; display: flex; justify-content: center;
+              align-items: flex-start; padding: 60px 12px; z-index: 5; }
+  .rk-sheet { position: relative; background: var(--rk-card); color: var(--rk-fg); border-radius: 20px; padding: 20px; width: min(560px, 100%);
+              box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+  .rk-x { position: absolute; top: 12px; right: 12px; font: inherit; border: 0; background: var(--rk-soft); color: var(--rk-fg);
+          width: 28px; height: 28px; border-radius: 50%; cursor: pointer; }
+  .rk-dl { display: grid; grid-template-columns: 90px 1fr; gap: 6px 12px; font-size: 13px; margin: 0; }
+  .rk-dl dt { color: var(--rk-muted); } .rk-dl dd { margin: 0; }
+  .rk-actions { display: flex; gap: 8px; align-items: center; margin-top: 16px; flex-wrap: wrap; }
+  .rk-toast { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); background: #1D1D1F; color: #FFFFFF; font-size: 13px;
+              padding: 10px 16px; border-radius: 999px; z-index: 6; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+  .rk-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+  .rk-form input { font: inherit; flex: 1 1 200px; min-width: 0; padding: 8px 10px; border: 1px solid var(--rk-line); border-radius: 10px;
+                   background: var(--rk-card); color: var(--rk-fg); }
+  .rk-star { color: #FF9F0A; }
+  @media (max-width: 560px) { .rk { padding: 12px; } .rk-podium { gap: 6px; } .rk-ret { font-size: 18px; } }
 </style>
 
 <div class="qt">
@@ -135,41 +188,76 @@
     </div>
   </section>
 
-  <section class="qt-sec" id="ranking" hidden>
-    <div class="qt-bar">
+  <section class="qt-sec rk" id="ranking" hidden>
+    <div class="rk-top">
+      <div class="rk-seg" role="group" aria-label="보기 방식">
+        <button type="button" id="mode-f1" aria-pressed="true">🏁 전광판</button>
+        <button type="button" id="mode-room" aria-pressed="false">📈 트레이딩 룸</button>
+      </div>
       <select class="dash-select" id="week" aria-label="주" data-draw="weeks" data-source="ranking"></select>
-      <span class="qt-note">모의투자 계좌 장부만. 주간 수익률 = 그 주 마지막 날 장 마감 총자산 ÷ 지난주 마지막 날 총자산 − 1.</span>
     </div>
-    <div class="qt-panel" id="podium-panel">
-      <h2>이번 주 시상대</h2>
-      <p class="qt-note">말풍선은 ✎를 눌러 고칠 수 있습니다. 이 전광판의 편집 권한이 있는 사람만 저장됩니다.</p>
-      <div class="qt-podium" data-draw="podium" data-source="ranking bubbles"></div>
-      <form id="bubble-form" class="qt-bubble-form" hidden>
-        <select class="dash-select" id="bubble-person" aria-label="누구의 말풍선" data-draw="bubble-person" data-source="ranking"></select>
-        <input id="bubble-text" maxlength="40" aria-label="한마디, 40자까지">
-        <button type="submit" class="qt-btn">저장</button>
-        <button type="button" class="qt-btn" id="bubble-cancel">취소</button>
-      </form>
-      <p class="qt-note" id="bubble-unsaved" hidden>저장되지 않았습니다. 이 전광판의 편집 권한이 있어야 말풍선을 고칠 수 있습니다.</p>
+    <p class="rk-note">모의투자 계좌 장부만. 주간 수익률 = 그 주 마지막 날 장 마감 총자산 ÷ 지난주 마지막 날 총자산 − 1 (첫 주는 자금 대비).</p>
+
+    <div id="rk-f1">
+      <div class="rk-podium" data-draw="podium" data-source="ranking bubbles reactions watch"></div>
+      <div class="rk-cut" id="rk-cut" hidden><span>✂️ 커피 쏘기 커트라인</span></div>
+      <div class="rk-pit" id="rk-pit" hidden>
+        <div class="rk-pit-title">🔧 PIT-IN (정비소)</div>
+        <div data-draw="pit" data-source="ranking bubbles reactions watch"></div>
+      </div>
     </div>
-    <div class="qt-panel" id="rank-panel">
+
+    <div id="rk-room" hidden>
+      <div class="rk-bench" data-draw="bench" data-source="benchmark"></div>
+      <div class="rk-sort" role="group" aria-label="정렬">
+        <button type="button" class="rk-chip" id="sort-ret" aria-pressed="true">수익률(%) 순</button>
+        <button type="button" class="rk-chip" id="sort-pnl" aria-pressed="false">손익금(원) 순</button>
+      </div>
+      <div class="rk-tiles" data-draw="tiles" data-source="ranking ranking_curve watch"></div>
+    </div>
+
+    <form id="bubble-form" class="rk-form" hidden>
+      <select class="dash-select" id="bubble-person" aria-label="누구의 말풍선" data-draw="bubble-person" data-source="ranking"></select>
+      <input id="bubble-text" maxlength="40" aria-label="한마디, 40자까지">
+      <button type="submit" class="rk-btn rk-primary">저장</button>
+      <button type="button" class="rk-btn" id="bubble-cancel">취소</button>
+    </form>
+    <p class="rk-note" id="bubble-unsaved" hidden>저장되지 않았습니다. 이 전광판의 편집 권한이 있어야 말풍선과 리액션을 남길 수 있습니다.</p>
+
+    <div class="rk-card" id="rk-report">
+      <h2>상세 성적표</h2>
       <div class="qt-scroll">
-        <table class="qt-table" data-source="ranking" data-row-key="week,person,book">
+        <table class="rk-table" data-source="ranking" data-row-key="week,person,book">
           <thead><tr>
-            <th data-field="rank">순위</th><th data-field="change" data-source="rank_change">지난주 대비</th><th class="qt-l" data-field="person">사람</th><th class="qt-l" data-field="book">장부</th>
+            <th data-field="rank">순위</th><th data-field="change" data-source="rank_change">지난주 대비</th>
+            <th class="qt-l" data-field="person">사람</th><th class="qt-l" data-field="book">장부</th>
             <th data-field="ret">주간 수익률(%)</th><th data-field="pnl">손익(원)</th><th data-field="sells">매도</th>
-            <th data-field="win">승률(%)</th><th data-field="worst">가장 큰 손실(원)</th>
+            <th data-field="win">승률(%)</th><th data-field="worst">가장 큰 손실(원)</th><th class="qt-l">칭호</th><th class="qt-l">전략</th>
           </tr></thead>
           <tbody data-draw="rank-rows"></tbody>
         </table>
       </div>
-      <p class="qt-note" data-draw="rank-empty"></p>
+      <p class="rk-note" data-draw="rank-empty"></p>
+      <p class="rk-note">🤖 역지표 봇은 재미로 계산한 가상 행입니다. 꼴찌의 주간 수익률과 손익에 −1을 곱하고 왕복 비용 0.33%를 뺀 값이라, 실제로 반대 매매를 한 결과와는 다릅니다.</p>
     </div>
-    <div class="qt-panel" id="rank-curve-panel">
-      <h2>그 주 누적 수익률</h2>
-      <div class="qt-legend" data-draw="rank-legend"></div>
-      <div class="qt-chart qt-small" id="rank-chart" data-draw="rank-chart" data-source="ranking_curve"></div>
+
+    <div class="rk-modal" id="rk-modal" hidden role="dialog" aria-modal="true" aria-labelledby="rk-modal-title">
+      <div class="rk-sheet">
+        <button type="button" class="rk-x" id="rk-close" aria-label="닫기">✕</button>
+        <h2 id="rk-modal-title">🔍 전략 훔쳐보기</h2>
+        <div data-draw="inspector" data-source="strategy ranking ranking_curve"></div>
+        <div class="rk-actions">
+          <button type="button" class="rk-btn rk-primary" id="act-copy" hidden>⚡ 전략 카피하기</button>
+          <button type="button" class="rk-btn" id="act-star" hidden>👀 관심 전략 찜하기</button>
+          <button type="button" class="rk-btn" id="act-unstar" hidden>★ 찜 해제</button>
+          <span class="rk-badge rk-bad" id="act-bot" hidden>🚨 역지표 봇에 연동 중</span>
+        </div>
+      </div>
     </div>
+    <div class="rk-toast" id="toast-copied" hidden role="status">전략 요약을 클립보드에 복사했습니다</div>
+    <div class="rk-toast" id="toast-copyfail" hidden role="status">복사하지 못했습니다. 브라우저가 클립보드를 막았습니다</div>
+    <div class="rk-toast" id="toast-star" hidden role="status">찜 목록을 바꿨습니다</div>
+    <div class="rk-toast" id="toast-fail" hidden role="status">저장하지 못했습니다 (편집 권한 필요)</div>
   </section>
 </div>
 
@@ -188,7 +276,8 @@
   window.qtEnc = (v) => String(v).replace(/%/g, '%25').replace(/&/g, '%26').replace(/=/g, '%3D');
   window.qtColor = (i) => dash.colors[i % dash.colors.length];
   const ALL = ['lede', 'tabs', 'days', 'cards', 'pnl-legend', 'pnl', 'stocks', 'stock-title', 'candles', 'peer-legend', 'peers',
-               'v3-rows', 'v3-empty', 'effect', 'weeks', 'podium', 'bubble-person', 'rank-rows', 'rank-empty', 'rank-legend', 'rank-chart'];
+               'v3-rows', 'v3-empty', 'effect', 'weeks', 'podium', 'pit', 'bench', 'tiles', 'bubble-person', 'rank-rows', 'rank-empty',
+               'inspector'];
   window.qtRedraw = () => { window.qtSections(); ALL.forEach((n) => dash.draw(n)); };
 
   // 섹션 보이기 (그림 밖에서는 hidden만 바꾼다)
@@ -493,90 +582,279 @@
       label: 'v3 필터 효과와 종목 범위 효과의 날짜별 누적(원)' });
   });
 
+  // 범례 점 색 (HTML에 적은 효과 범례)
+  dash.onData(() => {
+    document.querySelectorAll('.qt-c0').forEach((e) => { e.style.background = window.qtColor(0); });
+    document.querySelectorAll('.qt-c1').forEach((e) => { e.style.background = window.qtColor(1); });
+  });
+</script>
+
+<script>
+  // 주간 랭킹: 시상대·정비소(🏁) ↔ 트레이딩 룸(📈), 칭호, 역지표 봇, 전략 훔쳐보기
+  const q = window.QT, ok = window.qtOk;
+  q.mode = q.mode || 'f1';
+  q.sort = q.sort || 'ret';
+  const BOT_COST = 0.33;                                   // 역지표 봇 왕복 비용 (%)
+  const num = (v) => (v === '' || v == null ? null : +v);
+  const pid = (name) => 'p-' + btoa(String.fromCharCode(...new TextEncoder().encode(name))).replace(/\//g, '_').replace(/=+$/, '');
+  const weekRows = () => (ok('ranking') || []).filter((r) => r.week === q.week).sort((a, b) => +a.rank - +b.rank);
+  const starred = (person) => (ok('watch') || []).some((w) => w.person === person && w.on);
+  const reactOf = (person) => (ok('reactions') || []).find((x) => x.person === person) || { fire: 0, pray: 0, cold: 0 };
+  const bubbleOf = (person) => ((ok('bubbles') || []).find((b) => b.person === person) || {}).text || '';
+  const where = (r) => `week=${window.qtEnc(r.week)}&person=${window.qtEnc(r.person)}&book=${window.qtEnc(r.book)}`;
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+  dash.calc('rank_change', {
+    title: '지난주 대비 순위 변화', description: '같은 사람·장부의 지난주 순위 − 이번 주 순위 (양수면 올라감)', inputs: ['ranking'],
+    fn: (ranking) => {
+      const weeks = [...new Set(ranking.map((r) => r.week))].sort();
+      return ranking.map((r) => {
+        const prev = ranking.find((x) => x.week === weeks[weeks.indexOf(r.week) - 1] && x.person === r.person && x.book === r.book);
+        return { week: r.week, person: r.person, book: r.book, change: prev ? +prev.rank - +r.rank : null };
+      });
+    },
+  });
+  dash.calc('bot', {
+    title: '역지표 봇', description: '그 주 꼴찌의 주간 수익률·손익 × −1, 왕복 비용 0.33% 차감 (재미로 만든 가상 행)', inputs: ['ranking'],
+    fn: (ranking) => [...new Set(ranking.map((r) => r.week))].map((w) => {
+      const rows = ranking.filter((r) => r.week === w);
+      const last = rows.reduce((a, b) => (+a.rank > +b.rank ? a : b));
+      const base = +last.ret ? +last.pnl / (+last.ret / 100) : 0;     // 손익 ÷ 수익률 = 그 주 시작 총자산
+      return { week: w, name: `${last.person} 반대로만 하면 돈 벌듯 🤖`, ret: -(+last.ret) - BOT_COST, pnl: Math.round(-(+last.pnl) - base * BOT_COST / 100) };
+    }),
+  });
+  const changeOf = (r) => { const c = (ok('rank_change') || []).find((x) => x.week === r.week && x.person === r.person && x.book === r.book); return c ? c.change : null; };
+
+  const titles = (r, rows) => {
+    const out = [];
+    if (+r.rank === 1) out.push(rows.every((x) => +x.ret < 0) ? ['🛡️ 방어력 1위', ''] : ['👑 이번 주 1위', '']);
+    if (num(r.sells) === 0) out.push(['🧘 부동명왕', '']);
+    if (num(r.sells) >= 10) out.push(['⚡ 초단타 스캘퍼', '']);
+    const worst = rows.map((x) => num(x.worst)).filter((v) => v != null);
+    if (num(r.worst) != null && num(r.worst) < 0 && num(r.worst) === Math.min(...worst)) out.push(['💥 화끈한 불나방', 'rk-bad']);
+    if (rows.length >= 2 && +r.rank === rows.length) out.push(['🚨 이번 주 역지표', 'rk-bad']);
+    return out;
+  };
+  const badgeRow = (r, rows) => { const b = el('div', 'rk-badges'); titles(r, rows).forEach(([t, c]) => b.append(el('span', `rk-badge ${c}`, t))); return b; };
+
+  const toast = (id) => {
+    document.querySelectorAll('.rk-toast').forEach((t) => { t.hidden = t.id !== id; });
+    setTimeout(() => document.querySelectorAll(`#${id}`).forEach((t) => { t.hidden = true; }), 2200);
+  };
+  const openBubble = (person) => {
+    q.bubblePerson = person;
+    document.querySelectorAll('#bubble-form').forEach((f) => { f.hidden = false; });
+    document.querySelectorAll('#bubble-person').forEach((e) => { e.value = person; });
+    document.querySelectorAll('#bubble-text').forEach((e) => { e.value = bubbleOf(person); e.focus(); });
+  };
+  const react = async (person, key) => {
+    const cur = reactOf(person);
+    try {
+      const db = await claude.use('db');
+      await db.doc(`data/team/reactions/${pid(person)}`).set({ person, fire: +cur.fire || 0, pray: +cur.pray || 0, cold: +cur.cold || 0,
+                                                              [key]: (+cur[key] || 0) + 1 });
+    } catch { toast('toast-fail'); }
+  };
+  const openInspector = (r) => {
+    const rows = weekRows();
+    q.inspect = r.person;
+    const rank = +r.rank, last = rows.length >= 4 && rank === rows.length;
+    const pairs = [['#act-copy', rank !== 1], ['#act-star', rank === 1 || last || starred(r.person)],
+                   ['#act-unstar', rank === 1 || last || !starred(r.person)], ['#act-bot', !last]];
+    pairs.forEach(([sel, hide]) => document.querySelectorAll(sel).forEach((e) => { e.hidden = hide; }));
+    document.querySelectorAll('#rk-modal').forEach((m) => { m.hidden = false; });
+    dash.draw('inspector');
+    document.querySelectorAll('.rk-sheet').forEach((s) => s.scrollIntoView({ block: 'start', behavior: 'smooth' }));
+  };
+  const inspectBtn = (r) => { const b = el('button', 'rk-btn', '🔍 전략 훔쳐보기'); b.type = 'button'; b.onclick = () => openInspector(r); return b; };
+
+  // 시상대·정비소 카드
+  const card = (r, rows, emptySay) => {
+    const box = el('div');
+    box.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;width:100%';
+    const say = bubbleOf(r.person);
+    const bubble = el('div', 'rk-bubble' + (say ? '' : ' rk-empty'));
+    const t = el('span', null, say || emptySay);
+    if (say) { t.dataset.source = 'bubbles'; t.dataset.field = 'text'; t.dataset.where = `person=${window.qtEnc(r.person)}`; }
+    const edit = el('button', 'rk-edit', '✎'); edit.type = 'button'; edit.setAttribute('aria-label', `${r.person} 말풍선 고치기`);
+    edit.onclick = () => openBubble(r.person);
+    bubble.append(t, edit);
+    const name = el('div', 'rk-name', r.person);
+    if (starred(r.person)) name.append(el('span', 'rk-star', '★'));
+    const ret = el('div', `rk-ret ${window.qtSign(r.ret)}`, window.qtPct(r.ret));
+    Object.assign(ret.dataset, { source: 'ranking', field: 'ret', where: where(r) });
+    const won = el('div', 'rk-won');
+    const w = el('span', null, window.qtWon(r.pnl)); Object.assign(w.dataset, { source: 'ranking', field: 'pnl', where: where(r) });
+    won.append(w, document.createTextNode('원'));
+    const re = reactOf(r.person), rx = el('div', 'rk-react');
+    [['fire', '🔥'], ['pray', '🙏'], ['cold', '🥶']].forEach(([k, e]) => {
+      const b = el('button', null, `${e} ${+re[k] || 0}`); b.type = 'button'; b.setAttribute('aria-label', `${r.person}에게 ${e}`);
+      b.onclick = () => react(r.person, k); rx.append(b);
+    });
+    box.append(bubble, name, el('div', 'rk-book', r.book), ret, won, badgeRow(r, rows), rx, inspectBtn(r));
+    return box;
+  };
+
+  window.rkLayout = () => {
+    const room = q.mode === 'room', n = weekRows().length;
+    document.querySelectorAll('#ranking').forEach((e) => e.classList.toggle('rk-dark', room));
+    document.querySelectorAll('#rk-f1').forEach((e) => { e.hidden = room; });
+    document.querySelectorAll('#rk-room').forEach((e) => { e.hidden = !room; });
+    document.querySelectorAll('#rk-cut, #rk-pit').forEach((e) => { e.hidden = room || n < 4; });
+    document.querySelectorAll('#mode-f1').forEach((b) => b.setAttribute('aria-pressed', String(!room)));
+    document.querySelectorAll('#mode-room').forEach((b) => b.setAttribute('aria-pressed', String(room)));
+    document.querySelectorAll('#sort-ret').forEach((b) => b.setAttribute('aria-pressed', String(q.sort === 'ret')));
+    document.querySelectorAll('#sort-pnl').forEach((b) => b.setAttribute('aria-pressed', String(q.sort === 'pnl')));
+  };
+  dash.onData(() => window.rkLayout());
+  [['#mode-f1', () => { q.mode = 'f1'; }], ['#mode-room', () => { q.mode = 'room'; }],
+   ['#sort-ret', () => { q.sort = 'ret'; }], ['#sort-pnl', () => { q.sort = 'pnl'; }]].forEach(([sel, f]) =>
+    document.querySelectorAll(sel).forEach((b) => b.addEventListener('click', () => { f(); window.rkLayout(); window.qtRedraw(); })));
+
   dash.draw('weeks', (sel) => {
     const r = ok('ranking');
     const weeks = r ? [...new Set(r.map((x) => x.week))].sort().reverse() : [];
     if (!q.week || !weeks.includes(q.week)) q.week = weeks[0] || null;
     sel.replaceChildren(...weeks.map((w) => new Option(`${window.qtDate(w)} 주`, w)));
     sel.value = q.week || '';
-    sel.onchange = () => { q.week = sel.value; window.qtRedraw(); };
+    sel.onchange = () => { q.week = sel.value; window.rkLayout(); window.qtRedraw(); };
   });
 
-  const weekRows = () => (ok('ranking') || []).filter((r) => r.week === q.week).sort((a, b) => a.rank - b.rank);
-
-  // 지난주 대비 순위 변화 (같은 사람·장부). 양수면 올라감, 지난주에 없으면 빈 값
-  dash.calc('rank_change', {
-    title: '지난주 대비 순위 변화', description: '같은 사람·장부의 지난주 순위 − 이번 주 순위 (양수면 올라감)', inputs: ['ranking'],
-    fn: (ranking) => {
-      const weeks = [...new Set(ranking.map((r) => r.week))].sort();
-      return ranking.map((r) => {
-        const prevWeek = weeks[weeks.indexOf(r.week) - 1];
-        const prev = ranking.find((x) => x.week === prevWeek && x.person === r.person && x.book === r.book);
-        return { week: r.week, person: r.person, book: r.book, change: prev ? +prev.rank - +r.rank : null };
-      });
-    },
-  });
-  const changeOf = (r) => {
-    const c = (ok('rank_change') || []).find((x) => x.week === r.week && x.person === r.person && x.book === r.book);
-    return c ? c.change : null;
-  };
-
-  // 말풍선: 공유 저장 행 data/team/bubbles, 문서 이름은 사람 이름의 base64 (한글은 문서 이름에 못 씀)
-  const bubbleId = (name) => 'p-' + btoa(String.fromCharCode(...new TextEncoder().encode(name))).replace(/\//g, '_').replace(/=+$/, '');
-  const openBubble = (person) => {
-    q.bubblePerson = person;
-    const text = ((ok('bubbles') || []).find((b) => b.person === person) || {}).text || '';
-    document.querySelectorAll('#bubble-form').forEach((f) => { f.hidden = false; });
-    document.querySelectorAll('#bubble-person').forEach((e) => { e.value = person; });
-    document.querySelectorAll('#bubble-text').forEach((e) => { e.value = text; e.focus(); });
-  };
-
-  dash.draw('podium', (el) => {
-    const top = weekRows().slice(0, 3);
-    const bub = ok('bubbles') || [];
-    el.replaceChildren();
-    if (!top.length) { el.textContent = '—'; return; }
-    [top[1], top[0], top[2]].filter(Boolean).forEach((r) => {
-      const step = document.createElement('div');
-      step.className = `qt-step qt-r${r.rank}`;
-      const b = bub.find((x) => x.person === r.person);
-      const bubble = document.createElement('div'), say = document.createElement('span'), edit = document.createElement('button');
-      bubble.className = 'qt-bubble' + (b && b.text ? '' : ' qt-empty');
-      say.textContent = b && b.text ? b.text : '한마디를 남겨 보세요';
-      if (b) { say.dataset.source = 'bubbles'; say.dataset.field = 'text'; say.dataset.where = `person=${window.qtEnc(r.person)}`; }
-      edit.type = 'button';
-      edit.className = 'qt-edit';
-      edit.textContent = '✎';
-      edit.setAttribute('aria-label', `${r.person} 말풍선 고치기`);
-      edit.onclick = () => openBubble(r.person);
-      bubble.append(say, edit);
-      const who = document.createElement('div'), book = document.createElement('div'), ret = document.createElement('div');
-      who.className = 'qt-who';
-      who.textContent = r.person;
-      book.className = 'qt-book';
-      book.textContent = r.book;
-      ret.className = `qt-ret ${window.qtSign(r.ret)}`;
-      ret.dataset.source = 'ranking';
-      ret.dataset.field = 'ret';
-      ret.dataset.where = `week=${window.qtEnc(r.week)}&person=${window.qtEnc(r.person)}&book=${window.qtEnc(r.book)}`;
-      ret.textContent = window.qtPct(r.ret);
-      const block = document.createElement('div');
-      block.className = 'qt-block';
-      block.textContent = r.rank;
-      step.append(bubble, who, book, ret, block);
-      el.append(step);
+  dash.draw('podium', (box) => {
+    const rows = weekRows();
+    box.replaceChildren();
+    if (!rows.length) { box.textContent = '—'; return; }
+    [rows[1], rows[0], rows[2]].filter(Boolean).forEach((r) => {
+      const step = el('div', `rk-step rk-p${r.rank}`);
+      const block = el('div', 'rk-block', String(r.rank));
+      step.append(card(r, rows, '한마디를 남겨 보세요 ✏️'), block);
+      box.append(step);
     });
+  });
+
+  dash.draw('pit', (box) => {
+    const rows = weekRows();
+    box.replaceChildren(...rows.slice(3).map((r) => {
+      const row = el('div', 'rk-pitrow');
+      const rank = el('div', 'rk-ret', `${r.rank}위`);
+      const c = card(r, rows, '변명을 남겨 보세요 ✏️');
+      c.style.flexDirection = 'row'; c.style.flexWrap = 'wrap'; c.style.justifyContent = 'flex-start';
+      row.append(rank, c);
+      return row;
+    }));
+  });
+
+  dash.draw('bench', (box) => {
+    const b = (ok('benchmark') || []).find((x) => x.week === q.week);
+    box.replaceChildren();
+    if (!b) { box.textContent = '이번 주 KOSPI 200 기준값이 아직 없습니다'; return; }
+    const v = el('b', window.qtSign(b.ret), window.qtPct(b.ret));
+    Object.assign(v.dataset, { source: 'benchmark', field: 'ret', where: `week=${window.qtEnc(b.week)}` });
+    box.append(el('span', null, '📊 KOSPI 200 (KODEX 200) 이번 주'), v);
+  });
+
+  const spark = (r) => {
+    const pts = (ok('ranking_curve') || []).filter((x) => x.week === r.week && x.person === r.person && x.book === r.book)
+      .sort((a, b) => (a.day < b.day ? -1 : 1)).map((x) => +x.pct);
+    const svg = d3.create('svg').attr('class', 'rk-spark').attr('viewBox', '0 0 200 46').attr('preserveAspectRatio', 'none')
+      .attr('role', 'img').attr('aria-label', `${r.person} 이번 주 누적 수익률 ${pts.length}일`);
+    if (pts.length) {
+      const x = d3.scaleLinear().domain([0, Math.max(1, pts.length - 1)]).range([4, 196]);
+      const y = d3.scaleLinear().domain(d3.extent([0, ...pts])).range([42, 4]);
+      svg.append('line').attr('x1', 0).attr('x2', 200).attr('y1', y(0)).attr('y2', y(0)).style('stroke', 'var(--rk-line)');
+      svg.append('path').attr('d', d3.line().x((v, i) => x(i)).y((v) => y(v))(pts)).attr('fill', 'none').attr('stroke-width', 2)
+        .style('stroke', pts[pts.length - 1] >= 0 ? 'var(--rk-up)' : 'var(--rk-down)');
+      pts.forEach((v, i) => svg.append('circle').attr('cx', x(i)).attr('cy', y(v)).attr('r', 2.5)
+        .style('fill', v >= 0 ? 'var(--rk-up)' : 'var(--rk-down)').append('title').text(`${i + 1}일째 ${window.qtPct(v)}`));
+    }
+    return svg.node();
+  };
+
+  dash.draw('tiles', (box) => {
+    const rows = weekRows();
+    const sorted = [...rows].sort((a, b) => (q.sort === 'pnl' ? +b.pnl - +a.pnl : +b.ret - +a.ret));
+    box.replaceChildren(...sorted.map((r) => {
+      const t = el('div', 'rk-tile');
+      const top = el('div', 'rk-tile-top');
+      const name = el('div', 'rk-name', `${r.rank}위 ${r.person}`);
+      if (starred(r.person)) name.append(el('span', 'rk-star', '★'));
+      const ret = el('div', `rk-ret ${window.qtSign(r.ret)}`, window.qtPct(r.ret));
+      Object.assign(ret.dataset, { source: 'ranking', field: 'ret', where: where(r) });
+      top.append(name, ret);
+      const won = el('div', 'rk-won');
+      const w = el('span', null, window.qtWon(r.pnl)); Object.assign(w.dataset, { source: 'ranking', field: 'pnl', where: where(r) });
+      won.append(w, document.createTextNode(`원 · ${r.book}`));
+      t.append(top, won, spark(r), badgeRow(r, rows), inspectBtn(r));
+      return t;
+    }));
+  });
+
+  dash.draw('rank-rows', (tb) => {
+    const rows = weekRows();
+    tb.replaceChildren(...rows.map((r) => {
+      const tr = el('tr');
+      tr.dataset.key = [r.week, r.person, r.book].map(window.qtEnc).join(',');
+      const c = changeOf(r);
+      [[r.rank], [c == null ? '–' : c > 0 ? `▲${c}` : c < 0 ? `▼${-c}` : '–', c > 0 ? 'qt-up' : c < 0 ? 'qt-down' : ''],
+       [r.person + (starred(r.person) ? ' ★' : ''), 'qt-l'], [r.book, 'qt-l'], [window.qtPct(r.ret), window.qtSign(r.ret)],
+       [window.qtWon(r.pnl), window.qtSign(r.pnl)], [r.sells], [num(r.win) == null ? '' : (+r.win).toFixed(0)],
+       [num(r.worst) == null ? '' : window.qtWon(r.worst), window.qtSign(r.worst)]]
+        .forEach(([text, cls]) => tr.append(el('td', cls || null, text)));
+      const tt = el('td', 'qt-l'); tt.append(badgeRow(r, rows)); tr.append(tt);
+      const bt = el('td', 'qt-l'); bt.append(inspectBtn(r)); tr.append(bt);
+      return tr;
+    }));
+    const bot = (ok('bot') || []).find((b) => b.week === q.week);
+    if (bot && rows.length >= 2) {
+      const tr = el('tr', 'rk-bot');
+      const mark = (text, field, cls) => { const s = el('span', cls, text); Object.assign(s.dataset, { source: 'bot', field, where: `week=${window.qtEnc(bot.week)}` }); return s; };
+      const cells = [el('td', null, '🤖'), el('td', null, ''), el('td', 'qt-l'), el('td', 'qt-l', '가상 (반대 매매 가정)'),
+                     el('td'), el('td'), el('td', null, ''), el('td', null, ''), el('td', null, ''), el('td', 'qt-l'), el('td', 'qt-l')];
+      cells[2].append(mark(bot.name, 'name'));
+      cells[4].append(mark(window.qtPct(bot.ret), 'ret', window.qtSign(bot.ret)));
+      cells[5].append(mark(window.qtWon(bot.pnl), 'pnl', window.qtSign(bot.pnl)));
+      cells[9].append(el('span', 'rk-badge', '🤖 역지표 봇'));
+      tr.append(...cells);
+      tb.append(tr);
+    }
+  });
+
+  dash.draw('rank-empty', (p) => {
+    const s = dash.data('ranking').status;
+    p.textContent = s === 'error' ? '주간 랭킹을 불러오지 못했습니다.'
+      : s === 'ok' && !weekRows().length ? '아직 모의 장부의 장 마감 총자산 기록이 없습니다. 팀 공유 폴더에 매일 장 마감 자료가 쌓이면 채워집니다.' : '';
+  });
+
+  dash.draw('inspector', (box) => {
+    const r = weekRows().find((x) => x.person === q.inspect);
+    const m = (ok('strategy') || []).find((x) => x.person === q.inspect);
+    box.replaceChildren();
+    if (!r) { box.textContent = '—'; return; }
+    const head = el('p', 'rk-note', `${r.rank}위 · ${r.person} · ${r.book}`);
+    const dl = el('dl', 'rk-dl');
+    (m ? [['전략', m.strategy], ['핵심 로직', m.logic], ['진입 조건', m.entry], ['청산·손절', m.exit], ['비용·리스크', m.risk], ['출처', m.source]]
+       : [['전략', '요약이 아직 없습니다']]).forEach(([k, v]) => {
+      const dd = el('dd', null, v);
+      if (m && k !== '출처') Object.assign(dd.dataset, { source: 'strategy', field: { 전략: 'strategy', '핵심 로직': 'logic', '진입 조건': 'entry', '청산·손절': 'exit', '비용·리스크': 'risk' }[k], where: `person=${window.qtEnc(r.person)}` });
+      dl.append(el('dt', null, k), dd);
+    });
+    const stat = el('p', 'rk-note');
+    const ret = el('b', window.qtSign(r.ret), window.qtPct(r.ret)); Object.assign(ret.dataset, { source: 'ranking', field: 'ret', where: where(r) });
+    stat.append(document.createTextNode('이번 주 '), ret, document.createTextNode(` · 매도 ${r.sells}번`));
+    const chart = el('div', 'qt-chart qt-small');
+    chart.style.minHeight = '180px';
+    box.append(head, dl, stat, el('h2', null, '이번 주 수익 곡선'), chart);
+    const pts = (ok('ranking_curve') || []).filter((x) => x.week === r.week && x.person === r.person && x.book === r.book)
+      .sort((a, b) => (a.day < b.day ? -1 : 1)).map((x) => [+d3.utcParse('%Y%m%d')(x.day), +x.pct]);
+    window.qtLines(chart, [{ name: r.person, color: +r.ret >= 0 ? 'var(--rk-up)' : 'var(--rk-down)', points: pts }],
+      { fmtX: (v) => d3.utcFormat('%m-%d')(new Date(v)), fmtY: (v) => window.qtPct(v), label: `${r.person} 이번 주 누적 수익률` });
   });
 
   dash.draw('bubble-person', (sel) => {
     const people = [...new Set((ok('ranking') || []).map((r) => r.person))];
     sel.replaceChildren(...people.map((p) => new Option(p, p)));
     sel.value = q.bubblePerson || people[0] || '';
-    sel.onchange = () => {
-      q.bubblePerson = sel.value;
-      const text = ((ok('bubbles') || []).find((b) => b.person === sel.value) || {}).text || '';
-      document.querySelectorAll('#bubble-text').forEach((e) => { e.value = text; });
-    };
+    sel.onchange = () => { q.bubblePerson = sel.value; document.querySelectorAll('#bubble-text').forEach((e) => { e.value = bubbleOf(sel.value); }); };
   });
 
   document.querySelectorAll('#bubble-cancel').forEach((b) => b.addEventListener('click', () => {
@@ -589,49 +867,32 @@
     let saved = Boolean(person);
     try {
       const db = await claude.use('db');
-      await db.doc(`data/team/bubbles/${bubbleId(person)}`).set({ person, text, at: new Date().toISOString() });
+      await db.doc(`data/team/bubbles/${pid(person)}`).set({ person, text, at: new Date().toISOString() });
     } catch { saved = false; }
     document.querySelectorAll('#bubble-unsaved').forEach((p) => { p.hidden = saved; });
     if (saved) f.hidden = true;
   }));
 
-  dash.draw('rank-rows', (tb) => {
-    tb.replaceChildren(...weekRows().map((r) => {
-      const tr = document.createElement('tr');
-      tr.dataset.key = [r.week, r.person, r.book].map(window.qtEnc).join(',');
-      const c = changeOf(r);
-      [[r.rank], [c == null ? '–' : c > 0 ? `▲${c}` : c < 0 ? `▼${-c}` : '–', c > 0 ? 'qt-up' : c < 0 ? 'qt-down' : ''],
-       [r.person, 'qt-l'], [r.book, 'qt-l'], [window.qtPct(r.ret), window.qtSign(r.ret)], [window.qtWon(r.pnl), window.qtSign(r.pnl)],
-       [r.sells], [(r.win ?? '') === '' ? '' : (+r.win).toFixed(0)], [(r.worst ?? '') === '' ? '' : window.qtWon(r.worst), window.qtSign(r.worst)]]
-        .forEach(([text, cls]) => { const td = document.createElement('td'); td.textContent = text; if (cls) td.className = cls; tr.append(td); });
-      return tr;
-    }));
-  });
-
-  dash.draw('rank-empty', (el) => {
-    const s = dash.data('ranking').status;
-    el.textContent = s === 'error' ? '주간 랭킹을 불러오지 못했습니다.'
-      : s === 'ok' && !weekRows().length ? '아직 모의 장부의 장 마감 총자산 기록이 없습니다. 팀 공유 폴더 연결 뒤 매일 장 마감 자료가 쌓이면 채워집니다.' : '';
-  });
-
-  const curveRows = () => (ok('ranking_curve') || []).filter((r) => r.week === q.week);
-  dash.draw('rank-legend', (el) => {
-    window.qtLegend(el, weekRows().map((r, i) => [`${r.person} · ${r.book}`, window.qtColor(i)]));
-  });
-  dash.draw('rank-chart', (el) => {
-    const c = curveRows();
-    if (!c.length) { el.replaceChildren(); el.textContent = '—'; return; }
-    const series = weekRows().map((r, i) => ({
-      name: `${r.person} · ${r.book}`, color: window.qtColor(i),
-      points: c.filter((x) => x.person === r.person && x.book === r.book).map((x) => [+d3.utcParse('%Y%m%d')(x.day), +x.pct]),
-    }));
-    window.qtLines(el, series, { fmtX: (v) => d3.utcFormat('%m-%d')(new Date(v)), fmtY: (v) => window.qtPct(v),
-      label: '그 주 장부별 누적 수익률' });
-  });
-
-  // 범례 점 색 (HTML에 적은 효과 범례)
-  dash.onData(() => {
-    document.querySelectorAll('.qt-c0').forEach((e) => { e.style.background = window.qtColor(0); });
-    document.querySelectorAll('.qt-c1').forEach((e) => { e.style.background = window.qtColor(1); });
-  });
+  const closeModal = () => document.querySelectorAll('#rk-modal').forEach((m) => { m.hidden = true; });
+  document.querySelectorAll('#rk-close').forEach((b) => b.addEventListener('click', closeModal));
+  document.querySelectorAll('#rk-modal').forEach((m) => m.addEventListener('click', (ev) => { if (ev.target === m) closeModal(); }));
+  document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') closeModal(); });
+  document.querySelectorAll('#act-copy').forEach((b) => b.addEventListener('click', () => {
+    const r = weekRows().find((x) => x.person === q.inspect) || {};
+    const m = (ok('strategy') || []).find((x) => x.person === q.inspect) || {};
+    const text = JSON.stringify({ person: r.person, book: r.book, week: r.week, weekly_return_pct: num(r.ret), pnl: num(r.pnl),
+                                  strategy: m.strategy, logic: m.logic, entry: m.entry, exit: m.exit, risk: m.risk }, null, 2);
+    navigator.clipboard.writeText(text).then(() => toast('toast-copied'), () => toast('toast-copyfail'));
+  }));
+  const setStar = async (on) => {
+    try {
+      const [db, user] = await Promise.all([claude.use('db'), claude.use('user')]);
+      await db.doc(`data/users/${await user.id()}/watch/people/${pid(q.inspect)}`).set({ person: q.inspect, on });
+      document.querySelectorAll('#act-star').forEach((e) => { e.hidden = on; });
+      document.querySelectorAll('#act-unstar').forEach((e) => { e.hidden = !on; });
+      toast('toast-star');
+    } catch { toast('toast-fail'); }
+  };
+  document.querySelectorAll('#act-star').forEach((b) => b.addEventListener('click', () => setStar(true)));
+  document.querySelectorAll('#act-unstar').forEach((b) => b.addEventListener('click', () => setStar(false)));
 </script>

@@ -10,7 +10,7 @@
     bars.csv      그날 매매한 종목과 v3 후보·업종 동료의 1분봉
     held.csv      그날 시작할 때 들고 있던 종목 (매매 없는 날도 차트를 보게)
     v3.csv        v3 판단 (v3를 돌리는 사람만), v3_effect.csv 사람·날짜별 필터·종목 범위 효과
-    ranking.csv   주간 랭킹 (모의 장부만), ranking_curve.csv 그 주 누적 수익률
+    ranking.csv   주간 랭킹 (모의 장부만), ranking_curve.csv 그 주 누적 수익률, benchmark.csv 같은 주 KODEX 200 수익률
 아티팩트에 올리는 일은 Claude가 한다 (이 스크립트는 파일만 만든다).
 먼저 팀원이 오늘 매매했거나 들고 있는 종목 중 이 PC에 오늘 1분봉이 없는 것을 한국투자 API로 받는다 (장 마감 뒤만,
 팀원 저장소에는 분봉 저장이 없어서. 내 PC 전광판도 같은 data/minute을 씀)
@@ -110,6 +110,18 @@ def run(log=print):
                          'pnl': round(x['pnl']), 'sells': x['sells'], 'win': x['win'], 'worst': x['worst']})
             curve += [{'week': w, 'person': x['person'], 'book': x['label'], 'day': day, 'pct': round(v, 4)}
                       for day, v in x['curve']]
+    bench = []                                       # 같은 주 KODEX 200 (코스피200 대용): 그 주 마지막 종가 ÷ 지난주 마지막 종가 - 1
+    closes = {}
+    for p in sorted((d.DATA / 'minute').glob('2*/069500.csv')):
+        b = d.bars(p.parent.name, '069500')
+        b = b[b['volume'] > 0] if b is not None else None
+        if b is not None and len(b):
+            closes[p.parent.name] = float(b['close'].iloc[-1])
+    for w in weeks:
+        before = [v for k, v in closes.items() if k < w]
+        now = [v for k, v in closes.items() if w <= k and d.monday(k) == w]
+        if before and now:
+            bench.append({'week': w, 'ret': round((now[-1] / before[-1] - 1) * 100, 4)})
     n = {
         'daily.csv': write('daily.csv', ['person', 'day', 'book', 'pnl'], daily),
         'pnl.csv': write('pnl.csv', ['person', 'day', 'book', 'hhmm', 'pct'], pnl),
@@ -124,6 +136,7 @@ def run(log=print):
         'ranking.csv': write('ranking.csv', ['week', 'rank', 'person', 'book', 'ret', 'pnl', 'sells', 'win', 'worst'],
                              rank),
         'ranking_curve.csv': write('ranking_curve.csv', ['week', 'person', 'book', 'day', 'pct'], curve),
+        'benchmark.csv': write('benchmark.csv', ['week', 'ret'], bench),
     }
     log('아티팩트 자료 : ' + ', '.join(f'{k} {v}줄' for k, v in n.items()) + f' → {OUT}')
     return n
