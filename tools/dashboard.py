@@ -73,14 +73,20 @@ def trades(book, root=DATA):
     return t
 
 
-def day_pnl(t, day, closes):
-    """[(hhmm, 손익 원)] 분마다. t: 장부 매매 기록, closes: {code: Series(hhmm → 종가)}"""
+def held_at_open(t, day):
+    """{code: (수량, 매수 금액, 종목명)} 그날 시작할 때 들고 있던 종목"""
     held = {}
-    for r in t[t['day'] < day].itertuples():       # 오늘 시작할 때 들고 있던 종목
+    for r in t[t['day'] < day].itertuples():
         if r.side == 'BUY':
-            held[r.code] = (r.qty, r.amount + r.fee)
+            held[r.code] = (r.qty, r.amount + r.fee, getattr(r, 'name', r.code))
         else:
             held.pop(r.code, None)
+    return held
+
+
+def day_pnl(t, day, closes):
+    """[(hhmm, 손익 원)] 분마다. t: 장부 매매 기록, closes: {code: Series(hhmm → 종가)}"""
+    held = {c: v[:2] for c, v in held_at_open(t, day).items()}
     today = t[t['day'] == day]
     minutes = sorted({m for c in closes.values() for m in c.index}) or sorted(set(today['hhmm']))  # 분봉 없는 날은 매매 시각만
     out, realized, i, rows = [], 0.0, 0, list(today.itertuples())
@@ -103,7 +109,7 @@ def day_pnl(t, day, closes):
 
 
 def day_data(day, person=''):
-    out = {'books': [], 'trades': [], 'stocks': {}, 'v3': [], 'report': []}
+    out = {'books': [], 'trades': [], 'stocks': {}, 'held': {}, 'v3': [], 'report': []}
     root, bs = source(person)
     logs = [(b, label, cap, trades(b, root)) for b, label, cap, _ in bs]
     codes = {INDEX} | {c for *_, t in logs for c in t.loc[t['day'] <= day, 'code']}
@@ -121,6 +127,9 @@ def day_data(day, person=''):
                                   'qty': int(r.qty), 'price': float(r.price),
                                   'profit': None if pd.isna(r.profit) else float(r.profit)})
             out['stocks'][r.code] = r.name
+        for code, (_, _, name) in held_at_open(t, day).items():     # 며칠씩 들고 가는 장부는 매매 없는 날도 차트를 보게
+            out['held'][code] = name
+            out['stocks'].setdefault(code, name)
     if INDEX in closes:
         k = closes[INDEX]
         out['index'] = [(m, (v / k.iloc[0] - 1) * 100) for m, v in k.items()]

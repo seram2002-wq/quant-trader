@@ -8,6 +8,7 @@
     index.csv     KODEX 200 시가 대비 % (1분 단위)
     trades.csv    매매
     bars.csv      그날 매매한 종목과 v3 후보·업종 동료의 1분봉
+    held.csv      그날 시작할 때 들고 있던 종목 (매매 없는 날도 차트를 보게)
     v3.csv        v3 판단 (v3를 돌리는 사람만), v3_effect.csv 사람·날짜별 필터·종목 범위 효과
     ranking.csv   주간 랭킹 (모의 장부만), ranking_curve.csv 그 주 누적 수익률
 아티팩트에 올리는 일은 Claude가 한다 (이 스크립트는 파일만 만든다).
@@ -30,7 +31,7 @@ def write(name, fields, rows):
 
 def run(log=print):
     OUT.mkdir(parents=True, exist_ok=True)
-    daily, pnl, index, trades, bars, v3, effect = [], [], [], [], [], [], []
+    daily, pnl, index, trades, bars, v3, effect, held = [], [], [], [], [], [], [], []
     persons = [d.ME] + [p for p in d.people() if p != d.ME]
     index_days, bar_keys = set(), set()
     for person in persons:
@@ -50,7 +51,8 @@ def run(log=print):
                 trades.append({'person': person, 'day': day, **{k: t[k] for k in
                                ('book', 'side', 'code', 'name', 'hhmm', 'qty', 'price', 'profit')}})
             names = dict(x['stocks'], **x.get('names', {}))
-            codes = {t['code'] for t in x['trades']}
+            codes = {t['code'] for t in x['trades']} | set(x['held'])
+            held += [{'person': person, 'day': day, 'code': c, 'name': n} for c, n in x['held'].items()]
             for r in x['v3']:
                 codes |= {r['code'], *str(r.get('peers') or '').split()}
                 v3.append({'person': person, 'day': day, 'code': r['code'], 'name': r['name'], 'sector': r['sector'],
@@ -89,6 +91,7 @@ def run(log=print):
         'v3.csv': write('v3.csv', ['person', 'day', 'code', 'name', 'sector', 'first', 'verdict', 'spread', 'near_low', 'exit',
                                    'pnl', 'peers'], v3),
         'v3_effect.csv': write('v3_effect.csv', ['person', 'day', 'filter_effect', 'range_effect'], effect),
+        'held.csv': write('held.csv', ['person', 'day', 'code', 'name'], held),
         'ranking.csv': write('ranking.csv', ['week', 'rank', 'person', 'book', 'ret', 'pnl', 'sells', 'win', 'worst'],
                              rank),
         'ranking_curve.csv': write('ranking_curve.csv', ['week', 'person', 'book', 'day', 'pct'], curve),

@@ -26,6 +26,13 @@ class DayPnl(unittest.TestCase):
                          [('0859', 50), ('0900', 100), ('0901', 100), ('0902', 160)])
 
 
+    def test_held_at_open(self):
+        from tools.dashboard import held_at_open
+        t = pd.DataFrame([dict(row('20261126', '1454', 'BUY', 'S', 43, 7_497_100, 0), name='삼성전자'),
+                          dict(row('20261126', '1500', 'BUY', 'X', 1, 100, 0), name='엑스'),
+                          dict(row('20261126', '1510', 'SELL', 'X', 1, 110, 0, 10), name='엑스')])
+        self.assertEqual(held_at_open(t, '20261127'), {'S': (43, 7_497_100, '삼성전자')})     # 판 종목은 빠짐
+
     def test_book_without_trades_file(self):
         from pathlib import Path
         from tools.dashboard import trades

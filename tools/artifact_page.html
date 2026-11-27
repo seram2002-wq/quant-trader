@@ -96,7 +96,7 @@
     <div class="qt-grid">
       <div class="qt-panel" id="stock-panel">
         <h2>종목</h2>
-        <div class="qt-stocks" data-draw="stocks"></div>
+        <div class="qt-stocks" data-draw="stocks" data-source="trades held v3"></div>
       </div>
       <div class="qt-panel" id="candle-panel">
         <h2 data-draw="stock-title">—</h2>
@@ -355,6 +355,8 @@
   const stockList = () => {
     const t = (ok('trades') || []).filter((r) => r.person === q.person && r.day === q.day);
     const names = new Map(t.map((r) => [r.code, [r.name, '매매']]));
+    (ok('held') || []).filter((r) => r.person === q.person && r.day === q.day && !names.has(r.code))
+      .forEach((r) => names.set(r.code, [r.name, '보유']));
     {
       (ok('v3') || []).filter((r) => r.person === q.person && r.day === q.day && !names.has(r.code)).forEach((r) => names.set(r.code, [r.name, 'v3 후보']));
     }

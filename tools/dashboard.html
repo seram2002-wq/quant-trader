@@ -183,7 +183,7 @@ async function loadDay() {
   const traded = new Set(data.trades.map(t => t.code));
   const v3codes = new Set(data.v3.map(r => r.code));
   document.getElementById('stocks').innerHTML = Object.entries(data.stocks).map(([code, name]) => `
-    <button data-code="${code}">${name} <span class="muted">${traded.has(code) ? '매매' : ''}${v3codes.has(code) && !traded.has(code) ? 'v3 후보' : ''}</span></button>`).join('');
+    <button data-code="${code}">${name} <span class="muted">${traded.has(code) ? '매매' : v3codes.has(code) ? 'v3 후보' : (data.held || {})[code] ? '보유' : ''}</span></button>`).join('');
   document.querySelectorAll('#stocks button').forEach(b => b.onclick = () => showStock(b.dataset.code));
 
   document.getElementById('v3').innerHTML = data.v3.map(r => `
