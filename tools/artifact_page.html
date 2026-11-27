@@ -255,7 +255,7 @@
       <div class="rk-sheet">
         <button type="button" class="rk-x" id="rk-close" aria-label="닫기">✕</button>
         <h2 id="rk-modal-title">🔍 전략 훔쳐보기</h2>
-        <div data-draw="inspector" data-source="strategy strategy_edit ranking ranking_curve"></div>
+        <div data-draw="inspector" data-source="strategy strategy_edit ranking equity_daily"></div>
         <div class="rk-actions">
           <button type="button" class="rk-btn rk-primary" id="act-copy" hidden>⚡ 전략 카피하기</button>
           <button type="button" class="rk-btn" id="act-star" hidden>👀 관심 전략 찜하기</button>
@@ -876,13 +876,26 @@
     const stat = el('p', 'rk-note');
     const ret = el('b', window.qtSign(r.ret), window.qtPct(r.ret)); Object.assign(ret.dataset, { source: 'ranking', field: 'ret', where: where(r) });
     stat.append(document.createTextNode('이번 주 '), ret, document.createTextNode(` · 매도 ${r.sells}번`));
+    // 이번 주 자산 흐름: 월요일 시작 자산(지난주 마지막 장 마감 총자산) = 0%, 월 ~ 금 장 마감마다
+    const eq = (ok('equity_daily') || []).filter((x) => x.person === r.person && x.book === r.book)
+      .sort((a, b) => (a.day < b.day ? -1 : 1));
+    const mon = d3.utcParse('%Y%m%d')(r.week);
+    const days = d3.range(5).map((i) => d3.utcFormat('%Y%m%d')(d3.utcDay.offset(mon, i)));
+    const before = eq.filter((x) => x.day < r.week);
+    const inWeek = eq.filter((x) => days.includes(x.day));
+    const base = before.length ? +before[before.length - 1].equity : inWeek.length ? +inWeek[0].equity : null;
+    const LABEL = ['월요일 시작', '월', '화', '수', '목', '금'];
+    const pts = base == null ? [] : [...(before.length ? [[0, 0]] : []),
+      ...inWeek.map((x) => [days.indexOf(x.day) + 1, (+x.equity / base - 1) * 100])];
+    const note = el('p', 'rk-note', before.length
+      ? `월요일 시작 자산 ${d3.format(',')(base)}원 (지난주 마지막 장 마감) 대비. 점은 그날 장 마감 총자산, 빈 요일은 기록 없음`
+      : `지난주 기록이 없어 이번 주 첫 기록(${inWeek.length ? LABEL[days.indexOf(inWeek[0].day) + 1] + '요일' : '없음'})을 0%로 그렸습니다. 다음 주부터는 월요일 시작 자산 대비`);
     const chart = el('div', 'qt-chart qt-small');
-    chart.style.minHeight = '180px';
-    box.append(head, dl, stat, el('h2', null, '이번 주 수익 곡선'), chart);
-    const pts = (ok('ranking_curve') || []).filter((x) => x.week === r.week && x.person === r.person && x.book === r.book)
-      .sort((a, b) => (a.day < b.day ? -1 : 1)).map((x) => [+d3.utcParse('%Y%m%d')(x.day), +x.pct]);
-    window.qtLines(chart, [{ name: r.person, color: +r.ret >= 0 ? 'var(--rk-up)' : 'var(--rk-down)', points: pts }],
-      { fmtX: (v) => d3.utcFormat('%m-%d')(new Date(v)), fmtY: (v) => window.qtPct(v), label: `${r.person} 이번 주 누적 수익률` });
+    chart.style.minHeight = '200px';
+    chart.dataset.source = 'equity_daily';
+    box.append(head, dl, stat, el('h2', null, '이번 주 자산 흐름'), note, chart);
+    window.qtLines(chart, [{ name: r.person, color: (pts.length ? pts[pts.length - 1][1] : 0) >= 0 ? 'var(--rk-up)' : 'var(--rk-down)', points: pts }],
+      { fmtX: (v) => LABEL[v] || '', fmtY: (v) => window.qtPct(v), xTicks: [0, 1, 2, 3, 4, 5], label: `${r.person} 이번 주 자산 흐름 (월요일 시작 대비)` });
   });
 
   dash.draw('bubble-person', (sel) => {

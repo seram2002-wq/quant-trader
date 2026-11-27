@@ -11,11 +11,13 @@
     held.csv      그날 시작할 때 들고 있던 종목 (매매 없는 날도 차트를 보게)
     v3.csv        v3 판단 (v3를 돌리는 사람만), v3_effect.csv 사람·날짜별 필터·종목 범위 효과
     ranking.csv   주간 랭킹 (모의 장부만), ranking_curve.csv 그 주 누적 수익률, benchmark.csv 같은 주 KODEX 200 수익률
+    equity_daily.csv  모의 장부 날짜별 장 마감 총자산 (화면이 월요일 시작 자산 대비로 그림)
 아티팩트에 올리는 일은 Claude가 한다 (이 스크립트는 파일만 만든다).
 먼저 팀원이 오늘 매매했거나 들고 있는 종목 중 이 PC에 오늘 1분봉이 없는 것을 한국투자 API로 받는다 (장 마감 뒤만,
 팀원 저장소에는 분봉 저장이 없어서. 내 PC 전광판도 같은 data/minute을 씀)
 """
 import csv
+import json
 import sys
 from datetime import datetime
 
@@ -52,6 +54,20 @@ def write(name, fields, rows):
         w.writeheader()
         w.writerows(rows)
     return len(rows)
+
+
+def equity_daily():
+    """모의 장부의 날짜별 장 마감 총자산 (team_export가 그날 남긴 줄). 화면이 월요일 시작 자산 대비로 그린다"""
+    rows = []
+    for person in d.people():
+        root = d.TEAM / person
+        for b in json.loads((root / 'books.json').read_text(encoding='utf-8')):
+            path = root / b['book'] / 'equity.csv'
+            if b['account'] == 'mock' and path.exists():
+                with open(path, encoding='utf-8') as f:
+                    rows += [{'person': person, 'book': b['label'], 'day': r['day'], 'equity': round(float(r['equity']))}
+                             for r in csv.DictReader(f)]
+    return rows
 
 
 def run(log=print):
@@ -137,6 +153,8 @@ def run(log=print):
                              rank),
         'ranking_curve.csv': write('ranking_curve.csv', ['week', 'person', 'book', 'day', 'pct'], curve),
         'benchmark.csv': write('benchmark.csv', ['week', 'ret'], bench),
+        'equity_daily.csv': write('equity_daily.csv', ['person', 'book', 'day', 'equity'],
+                                  equity_daily()),
     }
     log('아티팩트 자료 : ' + ', '.join(f'{k} {v}줄' for k, v in n.items()) + f' → {OUT}')
     return n
